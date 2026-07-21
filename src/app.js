@@ -29,6 +29,7 @@ const vendorRoutes = require("./routes/b2b/vendorRoutes");
 const odooRoutes = require("./routes/odoo/odooRoutes");
 
 const app = express();
+app.set("trust proxy", 1);
 
 // ── Security ───────────────────────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
