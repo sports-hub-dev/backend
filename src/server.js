@@ -9,6 +9,7 @@ const PricingTier       = require("./models/PricingTier");
 const { initJobs }      = require("./jobs/odooReconcileJob");
 const { PRICING_TIERS } = require("./utils/constants");
 
+console.log("BOOT: process starting, node version:", process.version); 
 // Validate env at startup
 try { validateConfig(); } catch (err) {
   logger.error(`Configuration error: ${err.message}`);
