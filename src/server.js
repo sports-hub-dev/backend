@@ -63,6 +63,8 @@ const startServer = async () => {
     console.log(`BOOT: inside app.listen callback — SUCCESS 2 ${port} [${process.env.NODE_ENV}]`);
   });
 
+  console.log(`BOOT: outside app.listen callback — SUCCESS 2 ${port} [${process.env.NODE_ENV}]`);
+
   const shutdown = (sig) => {
     logger.info(`${sig} received — shutting down gracefully`);
     server.close(async () => {
