@@ -60,7 +60,7 @@ const startServer = async () => {
     logger.info(`🏢 B2B portal    : http://localhost:${port}/api/v1/b2b`);
     logger.info(`🏪 Vendor portal : http://localhost:${port}/api/v1/vendors`);
     logger.info(`🔗 Odoo ERP      : http://localhost:${port}/api/v1/odoo`);
-    console.log("BOOT: inside app.listen callback — SUCCESS 2");
+    console.log(`BOOT: inside app.listen callback — SUCCESS 2 ${port} [${process.env.NODE_ENV}]`);
   });
 
   const shutdown = (sig) => {
