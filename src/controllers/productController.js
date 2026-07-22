@@ -30,7 +30,7 @@ exports.createProduct = asyncHandler(async (req, res) => {
     description: body.description,
     price: body.price,
     category: body.category,
-    mainImage: req.file.filename,
+    mainImage: req.file.path,
     hasSizeVariants,
     variants: hasSizeVariants ? variants : [],
     stock: hasSizeVariants ? 0 : parseInt(body.stock, 10) || 0,
@@ -68,7 +68,7 @@ exports.updateProduct = asyncHandler(async (req, res) => {
   // If changing to public, clear vendorId
   if (product.isPublic) product.vendorId = null;
 
-  if (req.file) product.mainImage = req.file.filename;
+  if (req.file) product.mainImage = req.file.path;
   await product.save();
   successResponse(res, 200, "Product updated successfully", { product: formatProduct(product) });
 });
@@ -102,7 +102,7 @@ exports.uploadAdditionalImages = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
   if (!product || product.isDeleted) throw new AppError("Product not found", 404);
   if (!req.files?.length) throw new AppError("No images uploaded", 400);
-  product.additionalImages.push(...req.files.map((f) => f.filename));
+  product.additionalImages.push(...req.files.map((f) => f.path));
   await product.save();
   successResponse(res, 200, "Images uploaded", {
     additionalImages: product.additionalImages.map((f) => storageService.getFileUrl(f)),
@@ -209,7 +209,7 @@ exports.getProductById = asyncHandler(async (req, res) => {
   //     throw new AppError("Product not found", 404); // wrong vendor
   //   }
   // }
-  
+
 
   successResponse(res, 200, "Product fetched", { product: formatProduct(product) });
 });
