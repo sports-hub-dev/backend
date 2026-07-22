@@ -4,9 +4,9 @@ const { successResponse } = require("../utils/apiResponse");
 
 const COOKIE_OPTS = {
   httpOnly: true,
-  secure:   process.env.NODE_ENV === "production",
-  sameSite: "strict",
-  maxAge:   7 * 24 * 60 * 60 * 1000,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
 // ── Regular customer register ──────────────────────────────────────────────
@@ -67,8 +67,8 @@ exports.getMe = asyncHandler(async (req, res) => {
 exports.updateProfile = asyncHandler(async (req, res) => {
   const { firstName, lastName, phoneNumber } = req.body;
   const user = req.user;
-  if (firstName)   user.firstName   = firstName;
-  if (lastName)    user.lastName    = lastName;
+  if (firstName) user.firstName = firstName;
+  if (lastName) user.lastName = lastName;
   if (phoneNumber) user.phoneNumber = phoneNumber;
   await user.save({ validateBeforeSave: false });
   successResponse(res, 200, "Profile updated", { user: user.toSafeObject() });
@@ -84,7 +84,7 @@ exports.addAddress = asyncHandler(async (req, res) => {
 });
 
 exports.updateAddress = asyncHandler(async (req, res) => {
-  const user    = req.user;
+  const user = req.user;
   const address = user.addresses.id(req.params.addressId);
   if (!address) return res.status(404).json({ success: false, message: "Address not found" });
   if (req.body.isDefault) user.addresses.forEach((a) => (a.isDefault = false));
