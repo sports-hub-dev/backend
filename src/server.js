@@ -39,19 +39,27 @@ const seedDefaults = async () => {
 
 const startServer = async () => {
   await connectDB();
-  await seedDefaults();
+  try {
+    await seedDefaults();
+  } catch (err) {
+    logger.warn(`Seed skipped: ${err.message}`);
+  }
 
   // Start Odoo reconcile + retry jobs
-  await initJobs();
+  try {
+    await initJobs();
+  } catch (err) {
+    logger.warn(`Odoo jobs init skipped: ${err.message}`);
+  }
   console.log("BOOT: about to call app.listen()");
   const server = app.listen(port, () => {
     console.log("BOOT: inside app.listen callback — SUCCESS");
-    // logger.info(`🚀 Sports Hub API v2.1.0 running on port ${port} [${process.env.NODE_ENV}]`);
-    // logger.info(`📖 Swagger docs  : http://localhost:${port}/api/docs`);
-    // logger.info(`❤️  Health check  : http://localhost:${port}/health`);
-    // logger.info(`🏢 B2B portal    : http://localhost:${port}/api/v1/b2b`);
-    // logger.info(`🏪 Vendor portal : http://localhost:${port}/api/v1/vendors`);
-    // logger.info(`🔗 Odoo ERP      : http://localhost:${port}/api/v1/odoo`);
+    logger.info(`🚀 Sports Hub API v2.1.0 running on port ${port} [${process.env.NODE_ENV}]`);
+    logger.info(`📖 Swagger docs  : http://localhost:${port}/api/docs`);
+    logger.info(`❤️  Health check  : http://localhost:${port}/health`);
+    logger.info(`🏢 B2B portal    : http://localhost:${port}/api/v1/b2b`);
+    logger.info(`🏪 Vendor portal : http://localhost:${port}/api/v1/vendors`);
+    logger.info(`🔗 Odoo ERP      : http://localhost:${port}/api/v1/odoo`);
     console.log("BOOT: inside app.listen callback — SUCCESS 2");
   });
 
