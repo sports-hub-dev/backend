@@ -52,7 +52,7 @@ const startServer = async () => {
     logger.warn(`Odoo jobs init skipped: ${err.message}`);
   }
   console.log("BOOT: about to call app.listen()");
-  const server = app.listen(port, () => {
+  const server = app.listen(port, '0.0.0.0', () => {
     console.log("BOOT: inside app.listen callback — SUCCESS");
     logger.info(`🚀 Sports Hub API v2.1.0 running on port ${port} [${process.env.NODE_ENV}]`);
     logger.info(`📖 Swagger docs  : http://localhost:${port}/api/docs`);
