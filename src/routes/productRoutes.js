@@ -11,8 +11,9 @@ const { ROLES }   = require("../utils/constants");
 // ── Public routes — optionalAuth attaches user if token present ────────────
 // This allows vendor users to see their vendor-specific products
 router.get("/",     optionalAuth, productQueryValidation, validate, productController.getProducts);
-router.get("/:id",  optionalAuth, productController.getProductById);
 router.get("/categories", optionalAuth, productController.getCategories);
+router.get("/:id",  optionalAuth, productController.getProductById);
+
 
 // ── Admin only ─────────────────────────────────────────────────────────────
 router.use(protect, restrictTo(ROLES.ADMIN));
