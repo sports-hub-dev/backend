@@ -12,6 +12,7 @@ const { ROLES }   = require("../utils/constants");
 // This allows vendor users to see their vendor-specific products
 router.get("/",     optionalAuth, productQueryValidation, validate, productController.getProducts);
 router.get("/:id",  optionalAuth, productController.getProductById);
+router.get("/categories", optionalAuth, productController.getCategories);
 
 // ── Admin only ─────────────────────────────────────────────────────────────
 router.use(protect, restrictTo(ROLES.ADMIN));

@@ -210,6 +210,24 @@ exports.getProducts = asyncHandler(async (req, res) => {
   paginatedResponse(res, "Products fetched", products.map(formatProduct), page, limit, total);
 });
 
+// ── Public: Get Distinct Categories ─────────────────────────────────────────
+exports.getCategories = asyncHandler(async (req, res) => {
+  const vendorId = req.user?.vendorId || null;
+  const filter = { isDeleted: false, isActive: true };
+
+  if (vendorId) {
+    filter.$or = [
+      { isPublic: true },
+      { isPublic: false, vendorId },
+    ];
+  } else {
+    filter.isPublic = true;
+  }
+
+  const categories = await Product.distinct("category", filter);
+  successResponse(res, 200, "Categories fetched", { categories: categories.sort() });
+});
+
 // ── Public: Get Product by ID ──────────────────────────────────────────────
 exports.getProductById = asyncHandler(async (req, res) => {
   const product = await Product.findOne({ _id: req.params.id, isDeleted: false, isActive: true });
