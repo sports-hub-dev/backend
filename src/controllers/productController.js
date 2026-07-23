@@ -212,18 +212,17 @@ exports.getProducts = asyncHandler(async (req, res) => {
 
 // ── Public: Get Distinct Categories ─────────────────────────────────────────
 exports.getCategories = asyncHandler(async (req, res) => {
-  const vendorId = req.user?.vendorId || null;
+  // const vendorId = req.user?.vendorId || null;
   const filter = { isDeleted: false, isActive: true };
 
-  if (vendorId) {
-    filter.$or = [
-      { isPublic: true },
-      { isPublic: false, vendorId },
-    ];
-  } else {
-    filter.isPublic = true;
-  }
-
+  // if (vendorId) {
+  //   filter.$or = [
+  //     { isPublic: true },
+  //     { isPublic: false, vendorId },
+  //   ];
+  // } else {
+  //   filter.isPublic = true;
+  // }
   const categories = await Product.distinct("category", filter);
   successResponse(res, 200, "Categories fetched", { categories: categories.sort() });
 });
