@@ -56,6 +56,7 @@ exports.createProduct = asyncHandler(async (req, res) => {
 });
 
 // ── Admin: Update Product ──────────────────────────────────────────────────
+// ── Admin: Update Product ──────────────────────────────────────────────────
 exports.updateProduct = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id);
   if (!product || product.isDeleted) throw new AppError("Product not found", 404);
@@ -67,6 +68,21 @@ exports.updateProduct = asyncHandler(async (req, res) => {
 
   // If changing to public, clear vendorId
   if (product.isPublic) product.vendorId = null;
+
+  // hasSizeVariants / variants / stock were missing from updatableFields above —
+  // that's why edits to stock or sizes on an existing product were silently ignored.
+  if (req.body.hasSizeVariants !== undefined) {
+    product.hasSizeVariants = req.body.hasSizeVariants === "true" || req.body.hasSizeVariants === true;
+  }
+
+  if (product.hasSizeVariants) {
+    if (req.body.variants !== undefined) {
+      product.variants = typeof req.body.variants === "string" ? JSON.parse(req.body.variants) : req.body.variants;
+    }
+    product.stock = 0;
+  } else if (req.body.stock !== undefined) {
+    product.stock = parseInt(req.body.stock, 10) || 0;
+  }
 
   if (req.file) product.mainImage = req.file.path;
   await product.save();
