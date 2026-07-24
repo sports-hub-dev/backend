@@ -1,33 +1,31 @@
-const nodemailer = require("nodemailer");
 const mailConfig = require("../config/mail");
 const logger = require("./logger");
 
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: mailConfig.host,
-    port: mailConfig.port,
-    secure: mailConfig.port === 465,
-    auth: {
-      user: mailConfig.user,
-      pass: mailConfig.pass,
-    },
-    connectionTimeout: 10000, // 10s to establish the connection
-    greetingTimeout: 10000,   // 10s to receive the SMTP greeting
-    socketTimeout: 15000,     // 15s max for the whole exchange
-  });
-};
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 const sendEmail = async ({ to, subject, html }) => {
   try {
-    const transporter = createTransporter();
-    const info = await transporter.sendMail({
-      from: mailConfig.from,
-      to,
-      subject,
-      html,
+    const res = await fetch(BREVO_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": mailConfig.brevoApiKey,
+      },
+      body: JSON.stringify({
+        sender: mailConfig.from,
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
     });
-    logger.info(`Email sent: ${info.messageId}`);
-    return info;
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || `Brevo API error (status ${res.status})`);
+    }
+
+    logger.info(`Email sent: ${data.messageId}`);
+    return data;
   } catch (error) {
     logger.error(`Email send error: ${error.message}`);
     throw error;

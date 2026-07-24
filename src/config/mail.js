@@ -1,7 +1,10 @@
+const parseFrom = (raw) => {
+  const match = /^(.*)<(.+)>$/.exec(raw || "");
+  if (match) return { name: match[1].trim().replace(/^"|"$/g, ""), email: match[2].trim() };
+  return { name: "Sports Hub", email: raw || "noreply@sportshub.com" };
+};
+
 module.exports = {
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT, 10) || 587,
-  user: process.env.SMTP_USER,
-  pass: process.env.SMTP_PASS,
-  from: process.env.EMAIL_FROM || "Sports Hub <noreply@sportshub.com>",
+  brevoApiKey: process.env.BREVO_API_KEY,
+  from: parseFrom(process.env.EMAIL_FROM),
 };
