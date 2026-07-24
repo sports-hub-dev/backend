@@ -7,7 +7,7 @@ const registerValidation = [
   body("password")
     .isLength({ min: 8 }).withMessage("Password must be at least 8 characters")
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage("Password must contain uppercase, lowercase, and a number"),
-  body("phoneNumber").optional().trim().isMobilePhone().withMessage("Invalid phone number"),
+  body("phoneNumber").optional().trim().isNumeric().withMessage("Phone number must contain digits only").isLength({ min: 7, max: 15 }).withMessage("Phone number must be between 7 and 15 digits"),
 ];
 
 // Vendor user registration adds required vendorId
@@ -18,7 +18,7 @@ const registerVendorUserValidation = [
   body("password")
     .isLength({ min: 8 }).withMessage("Password must be at least 8 characters")
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage("Password must contain uppercase, lowercase, and a number"),
-  body("phoneNumber").optional().trim().isMobilePhone().withMessage("Invalid phone number"),
+  body("phoneNumber").optional().trim().isNumeric().withMessage("Phone number must contain digits only").isLength({ min: 7, max: 15 }).withMessage("Phone number must be between 7 and 15 digits"),
   body("vendorId").notEmpty().isMongoId().withMessage("Valid vendor ID is required"),
 ];
 
@@ -44,7 +44,7 @@ const resetPasswordValidation = [
 const updateProfileValidation = [
   body("firstName").optional().trim().notEmpty().isLength({ max: 50 }),
   body("lastName").optional().trim().notEmpty().isLength({ max: 50 }),
-  body("phoneNumber").optional().trim().isMobilePhone().withMessage("Invalid phone number"),
+  body("phoneNumber").optional().trim().isNumeric().withMessage("Phone number must contain digits only").isLength({ min: 7, max: 15 }).withMessage("Phone number must be between 7 and 15 digits"),
 ];
 
 const addressValidation = [
