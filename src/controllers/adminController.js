@@ -86,7 +86,7 @@ exports.approveVendorUser = asyncHandler(async (req, res) => {
         <h2 style="color:#1B2A4A;">Account Approved!</h2>
         <p>Hi ${user.firstName},</p>
         <p>Your Sports Hub account linked to <strong>${user.vendorId.name}</strong> has been approved.</p>
-        <p>You can now log in and access your vendor-specific product catalogue.</p>
+        <p>You can now log in and buy your vendor-specific product catalogue.</p>
         <a href="${process.env.CLIENT_URL}/login"
            style="display:inline-block;padding:12px 28px;background:#2563EB;color:#fff;text-decoration:none;border-radius:4px;margin:20px 0;">
           Log In Now
