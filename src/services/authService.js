@@ -1,10 +1,11 @@
-const crypto  = require("crypto");
-const User    = require("../models/User");
-const Vendor  = require("../models/Vendor");
+const crypto = require("crypto");
+const User = require("../models/User");
+const Vendor = require("../models/Vendor");
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require("../utils/jwtUtils");
 const AppError = require("../utils/AppError");
 const { sendEmail, sendPasswordResetEmail } = require("../utils/emailUtils");
 const { ROLES } = require("../utils/constants");
+const logger = require("../utils/logger");
 
 const authService = {
 
@@ -16,9 +17,9 @@ const authService = {
 
     const user = await User.create({
       firstName, lastName, email, password, phoneNumber,
-      role:       ROLES.CUSTOMER,
+      role: ROLES.CUSTOMER,
       isApproved: true,   // regular customers are instantly active
-      isActive:   true,
+      isActive: true,
     });
     return user.toSafeObject();
   },
@@ -34,15 +35,15 @@ const authService = {
 
     // Validate vendor exists and is active
     const vendor = await Vendor.findById(vendorId);
-    if (!vendor)           throw new AppError("Vendor not found", 404);
-    if (!vendor.isActive)  throw new AppError("This vendor account is not yet approved. Contact Sports Hub.", 403);
+    if (!vendor) throw new AppError("Vendor not found", 404);
+    if (!vendor.isActive) throw new AppError("This vendor account is not yet approved. Contact Sports Hub.", 403);
 
     const user = await User.create({
       firstName, lastName, email, password, phoneNumber,
-      role:       ROLES.CUSTOMER,
-      vendorId:   vendor._id,
+      role: ROLES.CUSTOMER,
+      vendorId: vendor._id,
       isApproved: false,  // must wait for admin approval
-      isActive:   true,   // account exists but cannot log in until approved
+      isActive: true,   // account exists but cannot log in until approved
     });
 
     // Notify Sports Hub admin that a new vendor user is awaiting approval
@@ -63,7 +64,7 @@ const authService = {
             </table>
             <p>Log in to the Sports Hub admin panel to approve or reject this account.</p>
           </div>`,
-      }).catch(() => {}); // non-fatal
+      }).catch(() => { }); // non-fatal
     }
 
     return {
@@ -84,8 +85,8 @@ const authService = {
       throw new AppError("Your account is pending approval by Sports Hub. Please check back later.", 403);
     }
 
-    const payload      = { id: user._id, role: user.role, vendorId: user.vendorId || null };
-    const accessToken  = generateAccessToken(payload);
+    const payload = { id: user._id, role: user.role, vendorId: user.vendorId || null };
+    const accessToken = generateAccessToken(payload);
     const refreshToken = generateRefreshToken(payload);
 
     user.refreshTokens.push({ token: refreshToken, userAgent: meta.userAgent, ip: meta.ip });
@@ -116,10 +117,10 @@ const authService = {
       throw new AppError("Refresh token revoked", 401);
     }
 
-    user.refreshTokens     = user.refreshTokens.filter((t) => t.token !== token);
-    const payload          = { id: user._id, role: user.role, vendorId: user.vendorId || null };
-    const accessToken      = generateAccessToken(payload);
-    const newRefreshToken  = generateRefreshToken(payload);
+    user.refreshTokens = user.refreshTokens.filter((t) => t.token !== token);
+    const payload = { id: user._id, role: user.role, vendorId: user.vendorId || null };
+    const accessToken = generateAccessToken(payload);
+    const newRefreshToken = generateRefreshToken(payload);
     user.refreshTokens.push({ token: newRefreshToken, userAgent: meta.userAgent, ip: meta.ip });
     await user.save({ validateBeforeSave: false });
 
@@ -132,28 +133,30 @@ const authService = {
     if (!user) return; // prevent email enumeration
 
     const resetToken = crypto.randomBytes(32).toString("hex");
-    user.passwordResetToken   = crypto.createHash("sha256").update(resetToken).digest("hex");
+    user.passwordResetToken = crypto.createHash("sha256").update(resetToken).digest("hex");
     user.passwordResetExpires = Date.now() + 15 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
 
     const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-    await sendPasswordResetEmail(user.email, resetToken, resetUrl);
+    sendPasswordResetEmail(user.email, resetToken, resetUrl).catch((err) => {
+      logger.error(`Failed to send password reset email to ${user.email}:`, err);
+    });
   },
 
   // ── Reset password ─────────────────────────────────────────────────────────
   async resetPassword(token, newPassword) {
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
     const user = await User.findOne({
-      passwordResetToken:   hashedToken,
+      passwordResetToken: hashedToken,
       passwordResetExpires: { $gt: Date.now() },
     }).select("+password +passwordResetToken +passwordResetExpires");
 
     if (!user) throw new AppError("Token is invalid or has expired", 400);
 
-    user.password             = newPassword;
-    user.passwordResetToken   = undefined;
+    user.password = newPassword;
+    user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
-    user.refreshTokens        = [];
+    user.refreshTokens = [];
     await user.save();
   },
 };

@@ -11,6 +11,9 @@ const createTransporter = () => {
       user: mailConfig.user,
       pass: mailConfig.pass,
     },
+    connectionTimeout: 10000, // 10s to establish the connection
+    greetingTimeout: 10000,   // 10s to receive the SMTP greeting
+    socketTimeout: 15000,     // 15s max for the whole exchange
   });
 };
 
