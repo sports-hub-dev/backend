@@ -22,6 +22,8 @@ const {
   settingsRouter, analyticsRouter, adminRouter,
 } = require("./routes/index");
 
+const paymentRoutes = require("./routes/payment/paymentRoutes");
+
 // ── Vendor route ───────────────────────────────────────────────────────────
 const vendorRoutes = require("./routes/b2b/vendorRoutes");
 
@@ -40,6 +42,7 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-API-Key", "X-Odoo-Signature"],
 }));
 app.use("/api", globalLimiter);
+app.use("/api/v1/payments/stripe/webhook", express.raw({ type: "application/json" }));
 
 // ── Body parsing ───────────────────────────────────────────────────────────
 // Raw body for Odoo HMAC signature verification
@@ -93,6 +96,7 @@ app.use(`${API}/feedback`,    feedbackRouter);
 app.use(`${API}/settings`,    settingsRouter);
 app.use(`${API}/analytics`,   analyticsRouter);
 app.use(`${API}/admin`,       adminRouter);
+app.use(`${API}/payments`, paymentRoutes);
 
 // Vendor portal
 app.use(`${API}/vendors`,     vendorRoutes);

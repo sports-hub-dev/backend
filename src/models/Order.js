@@ -3,12 +3,12 @@ const { ORDER_STATUS } = require("../utils/constants");
 
 const orderItemSchema = new mongoose.Schema(
   {
-    product:   { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
-    name:      { type: String, required: true },
+    product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
+    name: { type: String, required: true },
     mainImage: { type: String },
-    size:      { type: String },
-    quantity:  { type: Number, required: true, min: 1 },
-    price:     { type: Number, required: true },
+    size: { type: String },
+    quantity: { type: Number, required: true, min: 1 },
+    price: { type: Number, required: true },
   },
   { _id: true }
 );
@@ -16,27 +16,27 @@ const orderItemSchema = new mongoose.Schema(
 const orderTimelineSchema = new mongoose.Schema(
   {
     previousStatus: { type: String },
-    newStatus:      { type: String, required: true, enum: Object.values(ORDER_STATUS) },
-    changedBy:      { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-    changedByName:  { type: String },
-    notes:          { type: String },
-    timestamp:      { type: Date, default: Date.now },
+    newStatus: { type: String, required: true, enum: Object.values(ORDER_STATUS) },
+    changedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    changedByName: { type: String },
+    notes: { type: String },
+    timestamp: { type: Date, default: Date.now },
   },
   { _id: true }
 );
 
 const shippingAddressSchema = new mongoose.Schema(
   {
-    fullName:    { type: String, required: true },
+    fullName: { type: String, required: true },
     phoneNumber: { type: String, required: true },
-    country:     { type: String, default: "Egypt" },
-    city:        { type: String, required: true },
-    area:        { type: String, required: true },
-    street:      { type: String, required: true },
-    building:    { type: String },
-    floor:       { type: String },
-    apartment:   { type: String },
-    notes:       { type: String },
+    country: { type: String, default: "Egypt" },
+    city: { type: String, required: true },
+    area: { type: String, required: true },
+    street: { type: String, required: true },
+    building: { type: String },
+    floor: { type: String },
+    apartment: { type: String },
+    notes: { type: String },
   },
   { _id: false }
 );
@@ -46,31 +46,31 @@ const orderSchema = new mongoose.Schema(
     orderNumber: { type: String, unique: true, index: true },
 
     // Customer
-    user:    { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
     isGuest: { type: Boolean, default: false },
     customerInfo: {
-      name:  { type: String, required: true },
+      name: { type: String, required: true },
       email: { type: String, required: true, lowercase: true },
       phone: { type: String, required: true },
     },
 
     shippingAddress: { type: shippingAddressSchema, required: true },
-    items:           [orderItemSchema],
+    items: [orderItemSchema],
 
     // Pricing
-    subtotal:    { type: Number, required: true },
+    subtotal: { type: Number, required: true },
     shippingFee: { type: Number, required: true, default: 0 },
-    discount:    { type: Number, default: 0 },
-    total:       { type: Number, required: true },
+    discount: { type: Number, default: 0 },
+    total: { type: Number, required: true },
 
     // Promo
-    promoCode:     { type: String },
+    promoCode: { type: String },
     promoDiscount: { type: Number, default: 0 },
 
     // ── Payment ────────────────────────────────────────────────────────────
     paymentMethod: {
       type: String,
-      enum: ["aps", "unpaid"],
+      enum: ["aps", "stripe", "unpaid"],
       default: "unpaid",
     },
     paymentStatus: {
@@ -83,16 +83,18 @@ const orderSchema = new mongoose.Schema(
 
     // Amazon Payment Services — their own transaction reference ("FORT ID")
     apsFortId: { type: String, index: true, sparse: true },
+    stripePaymentIntentId: { type: String, index: true, sparse: true },
+    stripeClientSecret: { type: String, select: false },
 
     // Generic payment reference (populated by the gateway)
     paymentReference: { type: String },
 
     // Order status
     status: {
-      type:    String,
-      enum:    Object.values(ORDER_STATUS),
+      type: String,
+      enum: Object.values(ORDER_STATUS),
       default: ORDER_STATUS.PENDING,
-      index:   true,
+      index: true,
     },
 
     timeline: [orderTimelineSchema],
@@ -101,7 +103,7 @@ const orderSchema = new mongoose.Schema(
     vendorId: { type: mongoose.Schema.Types.ObjectId, ref: "Vendor", index: true, default: null },
 
     currency: { type: String, default: "EGP" },
-    country:  { type: String, default: "EG" },
+    country: { type: String, default: "EG" },
   },
   { timestamps: true }
 );
@@ -110,9 +112,9 @@ const orderSchema = new mongoose.Schema(
 orderSchema.pre("save", async function () {
   if (!this.orderNumber) {
     const date = new Date();
-    const y    = date.getFullYear().toString().slice(-2);
-    const m    = String(date.getMonth() + 1).padStart(2, "0");
-    const d    = String(date.getDate()).padStart(2, "0");
+    const y = date.getFullYear().toString().slice(-2);
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
     const rand = Math.floor(Math.random() * 90000) + 10000;
     this.orderNumber = `SH${y}${m}${d}-${rand}`;
   }
