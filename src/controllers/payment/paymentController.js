@@ -106,7 +106,7 @@ exports.stripeRefund = asyncHandler(async (req, res) => {
 // ── Shared ───────────────────────────────────────────────────────────────
 exports.getPaymentStatus = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.orderId)
-    .select("orderNumber paymentStatus paymentMethod status total paidAt");
+    .select("orderNumber paymentStatus paymentMethod status total paidAt user");
   if (!order) throw new AppError("Order not found", 404);
 
   if (req.user.role !== "admin" && order.user?.toString() !== req.user._id.toString()) {
