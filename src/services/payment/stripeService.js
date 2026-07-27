@@ -50,7 +50,7 @@ const stripeService = {
             previousStatus: "pending",
             newStatus: "confirmed",
             changedByName: "Stripe",
-            notes: `Payment confirmed — Checkout Session: ${session.id}`,
+            notes: `Payment confirmed`,
           });
         }
         await order.save();
