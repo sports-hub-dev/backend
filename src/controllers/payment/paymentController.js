@@ -79,7 +79,7 @@ exports.apsReturn = asyncHandler(async (req, res) => {
 // ── Stripe ───────────────────────────────────────────────────────────────
 exports.createStripeOrder = asyncHandler(async (req, res) => {
   const order = await createOrderFromCart(req);
-  const stripeData = await stripeService.createPaymentIntent(order._id);
+  const stripeData = await stripeService.createCheckoutSession(order._id);
 
   successResponse(res, 201, "Order created", {
     order: { _id: order._id, orderNumber: order.orderNumber, total: order.total },
