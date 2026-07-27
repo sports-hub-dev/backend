@@ -24,6 +24,7 @@ const stripeService = {
         },
       ],
       metadata: { orderId: order._id.toString(), orderNumber: order.orderNumber },
+      billing_address_collection: 'auto',
       success_url: `${process.env.CLIENT_URL}/orders/${order._id}?payment=success`,
       cancel_url: `${process.env.CLIENT_URL}/checkout?payment=failed`,
     });
