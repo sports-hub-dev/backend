@@ -10,6 +10,7 @@ const stripeService = {
     if (order.paymentStatus === "paid") throw new AppError("Order is already paid", 400);
 
     const session = await stripe.checkout.sessions.create({
+      billing_address_collection: 'auto',
       mode: "payment",
       payment_method_types: ["card"],
       customer_email: order.customerInfo.email,
@@ -24,7 +25,6 @@ const stripeService = {
         },
       ],
       metadata: { orderId: order._id.toString(), orderNumber: order.orderNumber },
-      billing_address_collection: 'auto',
       success_url: `${process.env.CLIENT_URL}/orders/${order._id}?payment=success`,
       cancel_url: `${process.env.CLIENT_URL}/checkout?payment=failed`,
     });
