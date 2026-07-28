@@ -29,6 +29,11 @@ exports.login = asyncHandler(async (req, res) => {
   res.cookie("refreshToken", refreshToken, COOKIE_OPTS);
   successResponse(res, 200, "Login successful", { user, accessToken, refreshToken });
 });
+// ── Verify ──────────────────────────────────────────────────────────────────
+exports.verifyEmail = asyncHandler(async (req, res) => {
+  await authService.verifyEmail(req.params.token);
+  successResponse(res, 200, "Email verified successfully. You can now log in.");
+});
 
 // ── Logout ─────────────────────────────────────────────────────────────────
 exports.logout = asyncHandler(async (req, res) => {

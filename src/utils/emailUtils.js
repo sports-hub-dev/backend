@@ -50,4 +50,16 @@ const sendPasswordResetEmail = async (to, resetToken, resetUrl) => {
   return sendEmail({ to, subject: "Sports Hub - Password Reset Request", html });
 };
 
-module.exports = { sendEmail, sendPasswordResetEmail };
+const sendVerificationEmail = async (to, verifyUrl) => {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #1a1a2e;">Sports Hub - Verify Your Email</h2>
+      <p>Thanks for signing up! Click below to verify your email and activate your account:</p>
+      <a href="${verifyUrl}" style="display:inline-block;padding:12px 24px;background:#e94560;color:#fff;text-decoration:none;border-radius:4px;margin:20px 0;">Verify Email</a>
+      <p>This link expires in 24 hours.</p>
+    </div>
+  `;
+  return sendEmail({ to, subject: "Sports Hub - Verify Your Email", html });
+};
+
+module.exports = { sendEmail, sendPasswordResetEmail, sendVerificationEmail };

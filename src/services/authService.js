@@ -21,6 +21,13 @@ const authService = {
       isApproved: true,   // regular customers are instantly active
       isActive: true,
     });
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    user.emailVerificationToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+    user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24h
+    await user.save({ validateBeforeSave: false });
+
+    const verifyUrl = `${process.env.CLIENT_URL}/verify-email/${rawToken}`;
+    sendVerificationEmail(user.email, verifyUrl).catch((err) => logger.error(`Verification email failed: ${err.message}`));
     return user.toSafeObject();
   },
 
@@ -80,10 +87,16 @@ const authService = {
       throw new AppError("Invalid email or password", 401);
     }
 
+    if (!user.isEmailVerified) {
+      throw new AppError("Please verify your email before logging in. Check your inbox for the verification link.", 403);
+    }
+
     // Vendor users must be approved before they can log in
     if (user.vendorId && !user.isApproved) {
       throw new AppError("Your account is pending approval by Sports Hub. Please check back later.", 403);
     }
+
+
 
     const payload = { id: user._id, role: user.role, vendorId: user.vendorId || null };
     const accessToken = generateAccessToken(payload);
@@ -158,6 +171,21 @@ const authService = {
     user.passwordResetExpires = undefined;
     user.refreshTokens = [];
     await user.save();
+  },
+
+  async verifyEmail(token) {
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    const user = await User.findOne({
+      emailVerificationToken: hashedToken,
+      emailVerificationExpires: { $gt: Date.now() },
+    }).select("+emailVerificationToken +emailVerificationExpires");
+
+    if (!user) throw new AppError("Invalid or expired verification link", 400);
+
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save({ validateBeforeSave: false });
   },
 };
 

@@ -21,6 +21,7 @@ router.post("/login",            authLimiter, loginValidation,              vali
 router.post("/refresh-token",    authController.refreshToken);
 router.post("/forgot-password",  authLimiter, forgotPasswordValidation,     validate, authController.forgotPassword);
 router.post("/reset-password/:token", resetPasswordValidation,              validate, authController.resetPassword);
+router.get("/verify-email/:token", authController.verifyEmail);
 
 // ── Protected profile ──────────────────────────────────────────────────────
 router.post("/logout",                     protect, authController.logout);
