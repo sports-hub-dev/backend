@@ -7,6 +7,7 @@ const storageService   = require("../services/storage/storageService");
 const AppError       = require("../utils/AppError");
 const { successResponse, paginatedResponse } = require("../utils/apiResponse");
 const { PAGINATION } = require("../utils/constants");
+const { sendOrderNotificationEmail } = require("../utils/emailUtils");
 
 // ── Create Order — requires login (no guest orders for vendor products) ────
 // Public products can be ordered by any logged-in user.
@@ -80,6 +81,7 @@ exports.createOrder = asyncHandler(async (req, res) => {
     await session.commitTransaction();
     session.endSession();
     successResponse(res, 201, "Order placed successfully", { order });
+    sendOrderNotificationEmail(order).catch((err) => logger.error(`Order notification email failed: ${err.message}`));
   } catch (err) {
     await session.abortTransaction();
     session.endSession();

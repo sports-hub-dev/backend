@@ -2,6 +2,7 @@ const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const Order = require("../../models/Order");
 const AppError = require("../../utils/AppError");
 const logger = require("../../utils/logger");
+const { sendOrderNotificationEmail } = require("../../utils/emailUtils");
 
 const stripeService = {
   async createCheckoutSession(orderId) {
@@ -55,6 +56,7 @@ const stripeService = {
           });
         }
         await order.save();
+        sendOrderNotificationEmail(order).catch((err) => logger.error(`Order notification email failed: ${err.message}`));
         logger.info(`Order ${order.orderNumber} marked PAID via Stripe Checkout`);
       }
     } else if (event.type === "checkout.session.expired") {
