@@ -88,4 +88,18 @@ const sendOrderNotificationEmail = async (order) => {
   return sendEmail({ to: process.env.ORDER_NOTIFICATION_EMAIL, subject: `New Order — ${order.orderNumber}`, html });
 };
 
-module.exports = { sendEmail, sendPasswordResetEmail, sendVerificationEmail, sendOrderNotificationEmail };
+const sendWelcomeEmail = async (to, firstName) => {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #1a1a2e;">Welcome to Sports Hub, ${firstName}!</h2>
+      <p>Your email is verified and your account is ready to go.</p>
+      <p>Browse our uniforms and PPE collection and place your first order whenever you're ready.</p>
+      <a href="${process.env.CLIENT_URL}/products" style="display:inline-block;padding:12px 24px;background:#e94560;color:#fff;text-decoration:none;border-radius:4px;margin:20px 0;">
+        Start Shopping
+      </a>
+    </div>
+  `;
+  return sendEmail({ to, subject: "Welcome to Sports Hub!", html });
+};
+
+module.exports = { sendEmail, sendPasswordResetEmail, sendVerificationEmail, sendOrderNotificationEmail, sendWelcomeEmail };

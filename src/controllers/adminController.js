@@ -3,8 +3,7 @@ const Vendor  = require("../models/Vendor");
 const asyncHandler = require("../utils/asyncHandler");
 const AppError     = require("../utils/AppError");
 const { successResponse, paginatedResponse } = require("../utils/apiResponse");
-const { sendEmail } = require("../utils/emailUtils");
-
+const { sendEmail, sendWelcomeEmail } = require("../utils/emailUtils");
 const SAFE_SELECT = "-password -refreshTokens -passwordResetToken -passwordResetExpires -invitationToken -invitationExpires";
 
 // ── Get All Users ──────────────────────────────────────────────────────────
@@ -75,6 +74,7 @@ exports.approveVendorUser = asyncHandler(async (req, res) => {
   user.isApproved = true;
   user.approvedBy = req.user._id;
   user.approvedAt = new Date();
+  sendWelcomeEmail(user.email, user.firstName).catch((err) => logger.error(`Welcome email failed: ${err.message}`));
   await user.save({ validateBeforeSave: false });
 
   // Email the user

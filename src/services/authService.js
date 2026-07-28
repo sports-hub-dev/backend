@@ -3,7 +3,7 @@ const User = require("../models/User");
 const Vendor = require("../models/Vendor");
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require("../utils/jwtUtils");
 const AppError = require("../utils/AppError");
-const { sendEmail, sendPasswordResetEmail, sendVerificationEmail } = require("../utils/emailUtils");
+const { sendEmail, sendPasswordResetEmail, sendVerificationEmail, sendWelcomeEmail } = require("../utils/emailUtils");
 const { ROLES } = require("../utils/constants");
 const logger = require("../utils/logger");
 
@@ -186,6 +186,9 @@ const authService = {
     user.emailVerificationToken = undefined;
     user.emailVerificationExpires = undefined;
     await user.save({ validateBeforeSave: false });
+    if (!user.vendorId) {
+      sendWelcomeEmail(user.email, user.firstName).catch((err) => logger.error(`Welcome email failed: ${err.message}`));
+    }
   },
 };
 
