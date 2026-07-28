@@ -3,7 +3,7 @@ const User = require("../models/User");
 const Vendor = require("../models/Vendor");
 const { generateAccessToken, generateRefreshToken, verifyRefreshToken } = require("../utils/jwtUtils");
 const AppError = require("../utils/AppError");
-const { sendEmail, sendPasswordResetEmail } = require("../utils/emailUtils");
+const { sendEmail, sendPasswordResetEmail, sendVerificationEmail } = require("../utils/emailUtils");
 const { ROLES } = require("../utils/constants");
 const logger = require("../utils/logger");
 
