@@ -33,33 +33,23 @@ const sendEmail = async ({ to, subject, html }) => {
 };
 
 const sendPasswordResetEmail = async (to, resetToken, resetUrl) => {
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #1a1a2e;">Sports Hub - Password Reset</h2>
-      <p>You requested a password reset. Click the button below to reset your password:</p>
-      <a href="${resetUrl}" 
-         style="display:inline-block;padding:12px 24px;background:#e94560;color:#fff;text-decoration:none;border-radius:4px;margin:20px 0;">
-        Reset Password
-      </a>
-      <p>This link expires in <strong>15 minutes</strong>.</p>
-      <p>If you did not request this, please ignore this email.</p>
-      <hr/>
-      <small style="color:#999;">Sports Hub &mdash; Egypt</small>
-    </div>
-  `;
-  return sendEmail({ to, subject: "Sports Hub - Password Reset Request", html });
+  return sendTemplateEmail({
+    to,
+    templateId: 4,
+    params: {
+      RESET_URL: resetUrl,
+    },
+  });
 };
 
 const sendVerificationEmail = async (to, verifyUrl) => {
-  const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <h2 style="color: #1a1a2e;">Sports Hub - Verify Your Email</h2>
-      <p>Thanks for signing up! Click below to verify your email and activate your account:</p>
-      <a href="${verifyUrl}" style="display:inline-block;padding:12px 24px;background:#e94560;color:#fff;text-decoration:none;border-radius:4px;margin:20px 0;">Verify Email</a>
-      <p>This link expires in 24 hours.</p>
-    </div>
-  `;
-  return sendEmail({ to, subject: "Sports Hub - Verify Your Email", html });
+  return sendTemplateEmail({
+    to,
+    templateId: 3,
+    params: {
+      VERIFY_URL: verifyUrl,
+    },
+  });
 };
 
 const sendOrderNotificationEmail = async (order) => {
