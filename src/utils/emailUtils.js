@@ -1,5 +1,6 @@
 const mailConfig = require("../config/mail");
 const logger = require("./logger");
+
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 const sendEmail = async ({ to, subject, html }) => {
