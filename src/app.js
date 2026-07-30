@@ -14,6 +14,7 @@ const errorHandler       = require("./middleware/errorHandler");
 const logger             = require("./utils/logger");
 
 // ── B2C routes ─────────────────────────────────────────────────────────────
+const bundleRoutes = require("./routes/bundleRoutes");
 const authRoutes    = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
 const orderRoutes   = require("./routes/orderRoutes");
@@ -97,6 +98,7 @@ app.use(`${API}/settings`,    settingsRouter);
 app.use(`${API}/analytics`,   analyticsRouter);
 app.use(`${API}/admin`,       adminRouter);
 app.use(`${API}/payments`, paymentRoutes);
+app.use(`${API}/bundles`, bundleRoutes);
 
 // Vendor portal
 app.use(`${API}/vendors`,     vendorRoutes);

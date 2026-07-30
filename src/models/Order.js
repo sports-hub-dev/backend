@@ -3,12 +3,13 @@ const { ORDER_STATUS } = require("../utils/constants");
 
 const orderItemSchema = new mongoose.Schema(
   {
-    product: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: true },
-    name: { type: String, required: true },
+    product:   { type: mongoose.Schema.Types.ObjectId, ref: "Product" }, 
+    bundle:    { type: mongoose.Schema.Types.ObjectId, ref: "Bundle" }, 
+    name:      { type: String, required: true },
     mainImage: { type: String },
-    size: { type: String },
-    quantity: { type: Number, required: true, min: 1 },
-    price: { type: Number, required: true },
+    size:      { type: String },
+    quantity:  { type: Number, required: true, min: 1 },
+    price:     { type: Number, required: true },
   },
   { _id: true }
 );

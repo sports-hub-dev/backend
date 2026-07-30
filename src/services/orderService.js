@@ -1,70 +1,94 @@
-const mongoose    = require("mongoose");
-const Order       = require("../models/Order");
-const PromoCode   = require("../models/PromoCode");
-const Settings    = require("../models/Settings");
+const mongoose = require("mongoose");
+const Order = require("../models/Order");
+const Bundle = require("../models/Bundle");
+const PromoCode = require("../models/PromoCode");
+const Settings = require("../models/Settings");
 const inventoryService = require("./inventoryService");
-const AppError    = require("../utils/AppError");
+const AppError = require("../utils/AppError");
 const { ORDER_STATUS } = require("../utils/constants");
+
+/**
+ * Expands any bundle line items into their underlying component products,
+ * scaled by how many bundles were ordered — so stock deduction/restoration
+ * can reuse inventoryService's existing per-product logic completely
+ * unchanged. Regular (non-bundle) items pass through as-is.
+ */
+const expandItemsForStock = async (items, session) => {
+  const expanded = [];
+  for (const item of items) {
+    if (item.bundle) {
+      const bundle = await Bundle.findById(item.bundle).session(session);
+      if (!bundle) throw new AppError("Bundle not found", 404);
+      for (const component of bundle.products) {
+        expanded.push({
+          product: component.product,
+          quantity: component.quantity * item.quantity,
+        });
+      }
+    } else {
+      expanded.push(item);
+    }
+  }
+  return expanded;
+};
 
 const orderService = {
 
   async createOrder(orderData, session) {
     const { items, customerInfo, shippingAddress, promoCode: promoCodeStr, userId, vendorId } = orderData;
 
-    // 1. Shipping fee from settings
     const shippingFee = await Settings.getValue("shippingFee", 75);
 
-    // 2. Validate + apply promo code
-    let discount      = 0;
+    let discount = 0;
     let promoDiscount = 0;
-    let appliedCode   = null;
+    let appliedCode = null;
 
     if (promoCodeStr) {
       const promo = await PromoCode.findOne({ code: promoCodeStr.toUpperCase() });
-      if (!promo)       throw new AppError("Invalid promo code", 400);
+      if (!promo) throw new AppError("Invalid promo code", 400);
       if (!promo.isValid) throw new AppError("Promo code is expired or inactive", 400);
 
       promoDiscount = promo.discountPercentage;
-      appliedCode   = promo.code;
+      appliedCode = promo.code;
       await PromoCode.findByIdAndUpdate(promo._id, { $inc: { usageCount: 1 } }, { session });
     }
 
-    // 3. Calculate totals
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    discount       = promoDiscount ? Math.round((subtotal * promoDiscount) / 100) : 0;
-    const total    = Math.max(0, subtotal - discount + shippingFee);
+    discount = promoDiscount ? Math.round((subtotal * promoDiscount) / 100) : 0;
+    const total = Math.max(0, subtotal - discount + shippingFee);
 
-    // 4. Create order + deduct stock (both inside the same session)
     const [order] = await Order.create(
       [
         {
-          user:            userId || null,
-          isGuest:         false,
+          user: userId || null,
+          isGuest: false,
           customerInfo,
           shippingAddress,
-          items:           items.map((i) => ({
-            product:   i.product,
-            name:      i.name,
+          items: items.map((i) => ({
+            product: i.product || null,
+            bundle: i.bundle || null,
+            name: i.name,
             mainImage: i.mainImage,
-            size:      i.size || null,
-            quantity:  i.quantity,
-            price:     i.price,
+            size: i.size || null,
+            quantity: i.quantity,
+            price: i.price,
           })),
           subtotal,
           shippingFee,
           discount,
-          promoCode:     appliedCode,
+          promoCode: appliedCode,
           promoDiscount,
           total,
-          vendorId:      vendorId || null,
-          status:        ORDER_STATUS.PENDING,
-          timeline:      [{ newStatus: ORDER_STATUS.PENDING, notes: "Order placed" }],
+          vendorId: vendorId || null,
+          status: ORDER_STATUS.PENDING,
+          timeline: [{ newStatus: ORDER_STATUS.PENDING, notes: "Order placed" }],
         },
       ],
       { session }
     );
 
-    await inventoryService.deductStockForOrder(items, session, order._id);
+    const stockItems = await expandItemsForStock(items, session);
+    await inventoryService.deductStockForOrder(stockItems, session, order._id);
     return order;
   },
 
@@ -74,16 +98,16 @@ const orderService = {
 
     const previousStatus = order.status;
 
-    // Restore stock on cancellation
     if (newStatus === ORDER_STATUS.CANCELLED && previousStatus !== ORDER_STATUS.CANCELLED) {
-      await inventoryService.restoreStockForOrder(order.items, session, order._id);
+      const stockItems = await expandItemsForStock(order.items, session);
+      await inventoryService.restoreStockForOrder(stockItems, session, order._id);
     }
 
     order.status = newStatus;
     order.timeline.push({
       previousStatus,
       newStatus,
-      changedBy:     adminId,
+      changedBy: adminId,
       changedByName: adminName,
       notes,
     });

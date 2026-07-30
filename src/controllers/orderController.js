@@ -8,6 +8,7 @@ const AppError       = require("../utils/AppError");
 const { successResponse, paginatedResponse } = require("../utils/apiResponse");
 const { PAGINATION } = require("../utils/constants");
 const { sendOrderNotificationEmail } = require("../utils/emailUtils");
+const logger = require("../utils/logger");
 
 // ── Create Order — requires login (no guest orders for vendor products) ────
 // Public products can be ordered by any logged-in user.
@@ -24,11 +25,27 @@ exports.createOrder = asyncHandler(async (req, res) => {
     // Enrich items and validate visibility + access
     const enrichedItems = await Promise.all(
       items.map(async (item) => {
+        if (item.bundle) {
+          const Bundle = require("../models/Bundle");
+          const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
+          if (!bundle || bundle.isDeleted || !bundle.isActive) {
+            throw new AppError("Bundle is not available", 400);
+          }
+          const { bundlePrice } = await bundle.calculatePrice();
+          return {
+            bundle:    bundle._id,
+            name:      bundle.name,
+            mainImage: bundle.mainImage,
+            quantity:  item.quantity,
+            price:     bundlePrice,
+          };
+        }
+
         const product = await Product.findById(item.product).session(session);
-        const obj = product.toObject({ virtuals: true });
         if (!product || product.isDeleted || !product.isActive) {
           throw new AppError(`Product ${item.product} is not available`, 400);
         }
+        const obj = product.toObject({ virtuals: true });
 
         // Visibility check: vendor-specific products only for that vendor's users
         if (!product.isPublic) {
@@ -51,18 +68,7 @@ exports.createOrder = asyncHandler(async (req, res) => {
       })
     );
 
-    // Determine if this order is vendor-scoped:
-    // If ALL items are from the same vendor, tag the order with that vendorId.
-    // If mixed (public + vendor or multiple vendors), vendorId stays null.
     let orderVendorId = null;
-    const vendorIds = [...new Set(
-      enrichedItems
-        .map(async (_, i) => {
-          const p = await Product.findById(items[i].product);
-          return p?.vendorId?.toString() || null;
-        })
-    )];
-    // Simple approach: tag with user's vendorId if they are a vendor user
     if (userVendorId) orderVendorId = req.user.vendorId;
 
     const order = await orderService.createOrder(
@@ -88,6 +94,82 @@ exports.createOrder = asyncHandler(async (req, res) => {
     throw err;
   }
 });
+// exports.createOrder = asyncHandler(async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+
+//   try {
+//     const { items, customerInfo, shippingAddress, promoCode } = req.body;
+
+//     const userVendorId = req.user?.vendorId?.toString() || null;
+
+//     // Enrich items and validate visibility + access
+//     const enrichedItems = await Promise.all(
+//       items.map(async (item) => {
+//         const product = await Product.findById(item.product).session(session);
+//         const obj = product.toObject({ virtuals: true });
+//         if (!product || product.isDeleted || !product.isActive) {
+//           throw new AppError(`Product ${item.product} is not available`, 400);
+//         }
+
+//         // Visibility check: vendor-specific products only for that vendor's users
+//         if (!product.isPublic) {
+//           if (!userVendorId) {
+//             throw new AppError(`Product "${product.name}" is not available`, 403);
+//           }
+//           if (product.vendorId?.toString() !== userVendorId) {
+//             throw new AppError(`Product "${product.name}" is not available`, 403);
+//           }
+//         }
+
+//         return {
+//           product:   product._id,
+//           name:      product.name,
+//           mainImage: storageService.getFileUrl(obj.mainImage),
+//           size:      item.size || null,
+//           quantity:  item.quantity,
+//           price:     product.price,
+//         };
+//       })
+//     );
+
+//     // Determine if this order is vendor-scoped:
+//     // If ALL items are from the same vendor, tag the order with that vendorId.
+//     // If mixed (public + vendor or multiple vendors), vendorId stays null.
+//     let orderVendorId = null;
+//     const vendorIds = [...new Set(
+//       enrichedItems
+//         .map(async (_, i) => {
+//           const p = await Product.findById(items[i].product);
+//           return p?.vendorId?.toString() || null;
+//         })
+//     )];
+//     // Simple approach: tag with user's vendorId if they are a vendor user
+//     if (userVendorId) orderVendorId = req.user.vendorId;
+
+//     const order = await orderService.createOrder(
+//       {
+//         items:           enrichedItems,
+//         customerInfo,
+//         shippingAddress,
+//         promoCode,
+//         userId:          req.user._id,
+//         isGuest:         false,
+//         vendorId:        orderVendorId,
+//       },
+//       session
+//     );
+
+//     await session.commitTransaction();
+//     session.endSession();
+//     successResponse(res, 201, "Order placed successfully", { order });
+//     sendOrderNotificationEmail(order).catch((err) => logger.error(`Order notification email failed: ${err.message}`));
+//   } catch (err) {
+//     await session.abortTransaction();
+//     session.endSession();
+//     throw err;
+//   }
+// });
 
 // ── Admin: Get All Orders ──────────────────────────────────────────────────
 // Supports ?vendorId= to filter vendor-specific orders

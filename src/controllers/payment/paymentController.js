@@ -17,9 +17,25 @@ const createOrderFromCart = async (req) => {
     const { items, customerInfo, shippingAddress, promoCode } = req.body;
     const userVendorId = req.user?.vendorId?.toString() || null;
     const Product = require("../../models/Product");
+    const Bundle = require("../../models/Bundle");
 
     const enrichedItems = await Promise.all(
       items.map(async (item) => {
+        if (item.bundle) {
+          const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
+          if (!bundle || bundle.isDeleted || !bundle.isActive) {
+            throw new AppError("Bundle is not available", 400);
+          }
+          const { bundlePrice } = await bundle.calculatePrice();
+          return {
+            bundle:    bundle._id,
+            name:      bundle.name,
+            mainImage: bundle.mainImage,
+            quantity:  item.quantity,
+            price:     bundlePrice,
+          };
+        }
+
         const product = await Product.findById(item.product).session(session);
         if (!product || product.isDeleted || !product.isActive) {
           throw new AppError(`Product ${item.product} is not available`, 400);
