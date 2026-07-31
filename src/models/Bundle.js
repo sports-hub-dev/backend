@@ -23,7 +23,9 @@ const bundleSchema = new mongoose.Schema(
 
 // Computed at read-time from live product prices, so it never goes stale if a component's price changes later.
 bundleSchema.methods.calculatePrice = async function () {
-    await this.populate("products.product", "price");
+    if (this.products.length > 0 && !this.products[0].product.price) {
+        await this.populate("products.product", "price");
+    }
     const fullPrice = this.products.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
     const bundlePrice = Math.round(fullPrice * (1 - this.discountPercentage / 100));
     return { fullPrice, bundlePrice };
