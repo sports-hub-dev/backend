@@ -26,7 +26,7 @@ exports.getBundles = asyncHandler(async (req, res) => {
 exports.getBundleById = asyncHandler(async (req, res) => {
     const bundle = await Bundle.findById(req.params.id).populate({
         path: 'products.product',
-        select: 'name price mainImage stock hasSizeVariants variants'
+        select: 'name price mainImage stock hasSizeVariants variants isActive isDeleted totalStock'
     });
     if (!bundle || bundle.isDeleted) throw new AppError("Bundle not found", 404);
     successResponse(res, 200, "Bundle fetched", { bundle: await formatBundle(bundle) });
