@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
+const Bundle = require("../models/Bundle");
 const orderService = require("../services/orderService");
 const asyncHandler = require("../utils/asyncHandler");
 const storageService = require("../services/storage/storageService");
