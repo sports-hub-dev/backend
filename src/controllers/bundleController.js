@@ -16,7 +16,7 @@ exports.getBundles = asyncHandler(async (req, res) => {
   const filter = { isDeleted: false, isActive: true };
   const skip = (page - 1) * limit;
   const [bundles, total] = await Promise.all([
-    Bundle.find(filter).populate("products.product", "name price mainImage").skip(skip).limit(+limit),
+    Bundle.find(filter).populate("products.product", "name price mainImage stock hasSizeVariants variants").skip(skip).limit(+limit),
     Bundle.countDocuments(filter),
   ]);
   const formatted = await Promise.all(bundles.map(formatBundle));
