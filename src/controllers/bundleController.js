@@ -24,7 +24,7 @@ exports.getBundles = asyncHandler(async (req, res) => {
 });
 
 exports.getBundleById = asyncHandler(async (req, res) => {
-  const bundle = await Bundle.findById(req.params.id).populate("products.product", "name price mainImage stock");
+  const bundle = await Bundle.findById(req.params.id).populate("products.product", "name price mainImage stock hasSizeVariants variants");
   if (!bundle || bundle.isDeleted) throw new AppError("Bundle not found", 404);
   successResponse(res, 200, "Bundle fetched", { bundle: await formatBundle(bundle) });
 });

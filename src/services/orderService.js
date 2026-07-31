@@ -13,6 +13,25 @@ const { ORDER_STATUS } = require("../utils/constants");
  * can reuse inventoryService's existing per-product logic completely
  * unchanged. Regular (non-bundle) items pass through as-is.
  */
+// const expandItemsForStock = async (items, session) => {
+//   const expanded = [];
+//   for (const item of items) {
+//     if (item.bundle) {
+//       const bundle = await Bundle.findById(item.bundle).session(session);
+//       if (!bundle) throw new AppError("Bundle not found", 404);
+//       for (const component of bundle.products) {
+//         expanded.push({
+//           product: component.product,
+//           quantity: component.quantity * item.quantity,
+//         });
+//       }
+//     } else {
+//       expanded.push(item);
+//     }
+//   }
+//   return expanded;
+// };
+
 const expandItemsForStock = async (items, session) => {
   const expanded = [];
   for (const item of items) {
@@ -20,9 +39,13 @@ const expandItemsForStock = async (items, session) => {
       const bundle = await Bundle.findById(item.bundle).session(session);
       if (!bundle) throw new AppError("Bundle not found", 404);
       for (const component of bundle.products) {
+        const selection = (item.bundleSelections || []).find(
+          (s) => s.product.toString() === component.product.toString()
+        );
         expanded.push({
           product: component.product,
           quantity: component.quantity * item.quantity,
+          size: selection?.size || null,
         });
       }
     } else {
@@ -67,6 +90,7 @@ const orderService = {
           items: items.map((i) => ({
             product: i.product || null,
             bundle: i.bundle || null,
+            bundleSelections: i.bundleSelections || undefined,
             name: i.name,
             mainImage: i.mainImage,
             size: i.size || null,

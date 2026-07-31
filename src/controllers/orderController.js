@@ -1,10 +1,10 @@
-const mongoose       = require("mongoose");
-const Order          = require("../models/Order");
-const Product        = require("../models/Product");
-const orderService   = require("../services/orderService");
-const asyncHandler   = require("../utils/asyncHandler");
-const storageService   = require("../services/storage/storageService");
-const AppError       = require("../utils/AppError");
+const mongoose = require("mongoose");
+const Order = require("../models/Order");
+const Product = require("../models/Product");
+const orderService = require("../services/orderService");
+const asyncHandler = require("../utils/asyncHandler");
+const storageService = require("../services/storage/storageService");
+const AppError = require("../utils/AppError");
 const { successResponse, paginatedResponse } = require("../utils/apiResponse");
 const { PAGINATION } = require("../utils/constants");
 const { sendOrderNotificationEmail } = require("../utils/emailUtils");
@@ -26,18 +26,28 @@ exports.createOrder = asyncHandler(async (req, res) => {
     const enrichedItems = await Promise.all(
       items.map(async (item) => {
         if (item.bundle) {
-          const Bundle = require("../models/Bundle");
           const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
           if (!bundle || bundle.isDeleted || !bundle.isActive) {
             throw new AppError("Bundle is not available", 400);
           }
+
+          for (const component of bundle.products) {
+            if (component.product.hasSizeVariants) {
+              const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
+              if (!sel?.size) {
+                throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
+              }
+            }
+          }
+
           const { bundlePrice } = await bundle.calculatePrice();
           return {
-            bundle:    bundle._id,
-            name:      bundle.name,
+            bundle: bundle._id,
+            name: bundle.name,
             mainImage: bundle.mainImage,
-            quantity:  item.quantity,
-            price:     bundlePrice,
+            quantity: item.quantity,
+            price: bundlePrice,
+            bundleSelections: item.selections || [],
           };
         }
 
@@ -58,12 +68,12 @@ exports.createOrder = asyncHandler(async (req, res) => {
         }
 
         return {
-          product:   product._id,
-          name:      product.name,
+          product: product._id,
+          name: product.name,
           mainImage: storageService.getFileUrl(obj.mainImage),
-          size:      item.size || null,
-          quantity:  item.quantity,
-          price:     product.price,
+          size: item.size || null,
+          quantity: item.quantity,
+          price: product.price,
         };
       })
     );
@@ -73,13 +83,13 @@ exports.createOrder = asyncHandler(async (req, res) => {
 
     const order = await orderService.createOrder(
       {
-        items:           enrichedItems,
+        items: enrichedItems,
         customerInfo,
         shippingAddress,
         promoCode,
-        userId:          req.user._id,
-        isGuest:         false,
-        vendorId:        orderVendorId,
+        userId: req.user._id,
+        isGuest: false,
+        vendorId: orderVendorId,
       },
       session
     );
@@ -177,12 +187,12 @@ exports.getAllOrders = asyncHandler(async (req, res) => {
   const { page = 1, limit = PAGINATION.DEFAULT_LIMIT, status, search, vendorId } = req.query;
 
   const filter = {};
-  if (status)   filter.status   = status;
+  if (status) filter.status = status;
   if (vendorId) filter.vendorId = vendorId;
   if (search) {
     filter.$or = [
-      { orderNumber:          { $regex: search, $options: "i" } },
-      { "customerInfo.name":  { $regex: search, $options: "i" } },
+      { orderNumber: { $regex: search, $options: "i" } },
+      { "customerInfo.name": { $regex: search, $options: "i" } },
       { "customerInfo.email": { $regex: search, $options: "i" } },
     ];
   }

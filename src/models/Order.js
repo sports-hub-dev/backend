@@ -5,6 +5,7 @@ const orderItemSchema = new mongoose.Schema(
   {
     product:   { type: mongoose.Schema.Types.ObjectId, ref: "Product" }, 
     bundle:    { type: mongoose.Schema.Types.ObjectId, ref: "Bundle" }, 
+    bundleSelections: [{ product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" }, size: String }],
     name:      { type: String, required: true },
     mainImage: { type: String },
     size:      { type: String },
