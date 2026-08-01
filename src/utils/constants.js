@@ -34,6 +34,7 @@ const ORDER_STATUS = {
   SHIPPED: "shipped",
   DELIVERED: "delivered",
   CANCELLED: "cancelled",
+  REFUNDED: "refunded",
 };
 
 // ─── Purchase Request Statuses ─────────────────────────────────────────────
