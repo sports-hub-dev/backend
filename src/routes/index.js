@@ -9,6 +9,7 @@ const adminController    = require("../controllers/adminController");
 
 const { protect, restrictTo, optionalAuth } = require("../middleware/auth");
 const validate = require("../middleware/validate");
+const verifyTurnstile = require("../middleware/turnstile");
 const { promoCodeValidation, feedbackValidation } = require("../validations/promoFeedbackValidation");
 const { contactMessageValidation } = require("../validations/contactValidation");
 const { ROLES } = require("../utils/constants");
@@ -28,7 +29,7 @@ feedbackRouter.get("/",         protect, restrictTo(ROLES.ADMIN), feedbackContro
 feedbackRouter.delete("/:id",   protect, restrictTo(ROLES.ADMIN), feedbackController.deleteFeedback);
 
 const contactRouter = express.Router();
-contactRouter.post("/",          optionalAuth, contactMessageValidation, validate, contactController.submitContactMessage);
+contactRouter.post("/",          verifyTurnstile, optionalAuth, contactMessageValidation, validate, contactController.submitContactMessage);
 contactRouter.get("/",           protect, restrictTo(ROLES.ADMIN), contactController.getAllContactMessages);
 contactRouter.patch("/:id/read", protect, restrictTo(ROLES.ADMIN), contactController.markContactMessageRead);
 contactRouter.delete("/:id",     protect, restrictTo(ROLES.ADMIN), contactController.deleteContactMessage);
