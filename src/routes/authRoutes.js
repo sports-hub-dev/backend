@@ -20,7 +20,7 @@ router.post("/register",         verifyTurnstile, authLimiter, registerValidatio
 router.post("/register/vendor",  verifyTurnstile, authLimiter, registerVendorUserValidation,  validate, authController.registerVendorUser);
 router.post("/login",            authLimiter, loginValidation,              validate, authController.login);
 router.post("/refresh-token",    authController.refreshToken);
-router.post("/forgot-password",  authLimiter, forgotPasswordValidation,     validate, authController.forgotPassword);
+router.post("/forgot-password",  authLimiter, verifyTurnstile, forgotPasswordValidation,     validate, authController.forgotPassword);
 router.post("/reset-password/:token", resetPasswordValidation,              validate, authController.resetPassword);
 router.get("/verify-email/:token", authController.verifyEmail);
 
