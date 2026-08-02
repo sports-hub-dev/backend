@@ -3,6 +3,7 @@ const router  = express.Router();
 const authController = require("../controllers/authController");
 const { protect }    = require("../middleware/auth");
 const { authLimiter }= require("../middleware/rateLimiter");
+const verifyTurnstile = require("../middleware/turnstile");
 const validate       = require("../middleware/validate");
 const {
   registerValidation,
@@ -15,8 +16,8 @@ const {
 } = require("../validations/authValidation");
 
 // ── Public auth ────────────────────────────────────────────────────────────
-router.post("/register",         authLimiter, registerValidation,           validate, authController.register);
-router.post("/register/vendor",  authLimiter, registerVendorUserValidation,  validate, authController.registerVendorUser);
+router.post("/register",         verifyTurnstile, authLimiter, registerValidation,           validate, authController.register);
+router.post("/register/vendor",  verifyTurnstile, authLimiter, registerVendorUserValidation,  validate, authController.registerVendorUser);
 router.post("/login",            authLimiter, loginValidation,              validate, authController.login);
 router.post("/refresh-token",    authController.refreshToken);
 router.post("/forgot-password",  authLimiter, forgotPasswordValidation,     validate, authController.forgotPassword);
