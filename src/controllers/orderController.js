@@ -185,11 +185,16 @@ exports.createOrder = asyncHandler(async (req, res) => {
 // ── Admin: Get All Orders ──────────────────────────────────────────────────
 // Supports ?vendorId= to filter vendor-specific orders
 exports.getAllOrders = asyncHandler(async (req, res) => {
-  const { page = 1, limit = PAGINATION.DEFAULT_LIMIT, status, search, vendorId } = req.query;
+  const { page = 1, limit = PAGINATION.DEFAULT_LIMIT, status, search, vendorId, startDate, endDate } = req.query;
 
   const filter = {};
   if (status) filter.status = status;
   if (vendorId) filter.vendorId = vendorId;
+  if (startDate || endDate) {
+    filter.createdAt = {};
+    if (startDate) filter.createdAt.$gte = new Date(startDate);
+    if (endDate) filter.createdAt.$lte = new Date(endDate);
+  }
   if (search) {
     filter.$or = [
       { orderNumber: { $regex: search, $options: "i" } },
