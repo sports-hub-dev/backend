@@ -1,4 +1,5 @@
 const { body, oneOf } = require('express-validator');
+const AppError = require("../../utils/AppError");
 
 const createOrderValidation = [
   body("customerInfo.name").trim().notEmpty().withMessage("Customer name is required"),
@@ -15,7 +16,7 @@ const createOrderValidation = [
   body("promoCode").optional().trim(),
   body("items").custom((items) => {
           if (items.some((item) => !item.product && !item.bundle)) {
-              throw new Error("Each item must reference either a product or a bundle");
+              throw new AppError("Each item must reference either a product or a bundle");
           }
           return true;
       }),
