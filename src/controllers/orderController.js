@@ -24,60 +24,98 @@ exports.createOrder = asyncHandler(async (req, res) => {
     const userVendorId = req.user?.vendorId?.toString() || null;
 
     // Enrich items and validate visibility + access
-    const enrichedItems = await Promise.all(
-      items.map(async (item) => {
-        if (item.bundle) {
-          const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
-          if (!bundle || bundle.isDeleted || !bundle.isActive) {
-            throw new AppError("Bundle is not available", 400);
-          }
-
-          for (const component of bundle.products) {
-            if (component.product.hasSizeVariants) {
-              const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
-              if (!sel?.size) {
-                throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
-              }
+    const enrichedItems = [];
+    for (const item of items) {
+      if (item.bundle) {
+        const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
+        if (!bundle || bundle.isDeleted || !bundle.isActive) {
+          throw new AppError("Bundle is not available", 400);
+        }
+        for (const component of bundle.products) {
+          if (component.product.hasSizeVariants) {
+            const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
+            if (!sel?.size) {
+              throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
             }
           }
-
-          const { bundlePrice } = await bundle.calculatePrice();
-          return {
-            bundle: bundle._id,
-            name: bundle.name,
-            mainImage: bundle.mainImage,
-            quantity: item.quantity,
-            price: bundlePrice,
-            bundleSelections: item.selections || [],
-          };
         }
+        const { bundlePrice } = await bundle.calculatePrice();
+        enrichedItems.push({
+          bundle: bundle._id, name: bundle.name, mainImage: bundle.mainImage,
+          quantity: item.quantity, price: bundlePrice, bundleSelections: item.selections || [],
+        });
+        continue;
+      }
 
-        const product = await Product.findById(item.product).session(session);
-        if (!product || product.isDeleted || !product.isActive) {
-          throw new AppError(`Product ${item.product} is not available`, 400);
+      const product = await Product.findById(item.product).session(session);
+      if (!product || product.isDeleted || !product.isActive) {
+        throw new AppError(`Product ${item.product} is not available`, 400);
+      }
+      if (!product.isPublic) {
+        if (!userVendorId) throw new AppError(`Product "${product.name}" is not available`, 403);
+        if (product.vendorId?.toString() !== userVendorId) {
+          throw new AppError(`Product "${product.name}" is not available`, 403);
         }
-        const obj = product.toObject({ virtuals: true });
+      }
+      enrichedItems.push({
+        product: product._id, name: product.name, mainImage: product.mainImage,
+        size: item.size || null, quantity: item.quantity, price: product.price,
+      });
+    }
+    // const enrichedItems = await Promise.all(
+    //   items.map(async (item) => {
+    //     if (item.bundle) {
+    //       const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
+    //       if (!bundle || bundle.isDeleted || !bundle.isActive) {
+    //         throw new AppError("Bundle is not available", 400);
+    //       }
 
-        // Visibility check: vendor-specific products only for that vendor's users
-        if (!product.isPublic) {
-          if (!userVendorId) {
-            throw new AppError(`Product "${product.name}" is not available`, 403);
-          }
-          if (product.vendorId?.toString() !== userVendorId) {
-            throw new AppError(`Product "${product.name}" is not available`, 403);
-          }
-        }
+    //       for (const component of bundle.products) {
+    //         if (component.product.hasSizeVariants) {
+    //           const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
+    //           if (!sel?.size) {
+    //             throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
+    //           }
+    //         }
+    //       }
 
-        return {
-          product: product._id,
-          name: product.name,
-          mainImage: storageService.getFileUrl(obj.mainImage),
-          size: item.size || null,
-          quantity: item.quantity,
-          price: product.price,
-        };
-      })
-    );
+    //       const { bundlePrice } = await bundle.calculatePrice();
+    //       return {
+    //         bundle: bundle._id,
+    //         name: bundle.name,
+    //         mainImage: bundle.mainImage,
+    //         quantity: item.quantity,
+    //         price: bundlePrice,
+    //         bundleSelections: item.selections || [],
+    //       };
+    //     }
+
+    //     const product = await Product.findById(item.product).session(session);
+    //     if (!product || product.isDeleted || !product.isActive) {
+    //       throw new AppError(`Product ${item.product} is not available`, 400);
+    //     }
+    //     const obj = product.toObject({ virtuals: true });
+
+    //     // Visibility check: vendor-specific products only for that vendor's users
+    //     if (!product.isPublic) {
+    //       if (!userVendorId) {
+    //         throw new AppError(`Product "${product.name}" is not available`, 403);
+    //       }
+    //       if (product.vendorId?.toString() !== userVendorId) {
+    //         throw new AppError(`Product "${product.name}" is not available`, 403);
+    //       }
+    //     }
+
+    //     return {
+    //       product: product._id,
+    //       name: product.name,
+    //       mainImage: storageService.getFileUrl(obj.mainImage),
+    //       size: item.size || null,
+    //       quantity: item.quantity,
+    //       price: product.price,
+    //     };
+    //   })
+    // );
 
     let orderVendorId = null;
     if (userVendorId) orderVendorId = req.user.vendorId;

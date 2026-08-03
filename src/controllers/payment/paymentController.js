@@ -19,53 +19,91 @@ const createOrderFromCart = async (req) => {
         const Product = require("../../models/Product");
         const Bundle = require("../../models/Bundle");
 
-        const enrichedItems = await Promise.all(
-            items.map(async (item) => {
-                if (item.bundle) {
-                    const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
-                    if (!bundle || bundle.isDeleted || !bundle.isActive) {
-                        throw new AppError("Bundle is not available", 400);
-                    }
+        // const enrichedItems = await Promise.all(
+        //     items.map(async (item) => {
+        //         if (item.bundle) {
+        //             const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
+        //             if (!bundle || bundle.isDeleted || !bundle.isActive) {
+        //                 throw new AppError("Bundle is not available", 400);
+        //             }
 
-                    for (const component of bundle.products) {
-                        if (component.product.hasSizeVariants) {
-                            const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
-                            if (!sel?.size) {
-                                throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
-                            }
+        //             for (const component of bundle.products) {
+        //                 if (component.product.hasSizeVariants) {
+        //                     const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
+        //                     if (!sel?.size) {
+        //                         throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
+        //                     }
+        //                 }
+        //             }
+
+        //             const { bundlePrice } = await bundle.calculatePrice();
+        //             return {
+        //                 bundle: bundle._id,
+        //                 name: bundle.name,
+        //                 mainImage: bundle.mainImage,
+        //                 quantity: item.quantity,
+        //                 price: bundlePrice,
+        //                 bundleSelections: item.selections || [],
+        //             };
+        //         }
+        //         const product = await Product.findById(item.product).session(session);
+        //         if (!product || product.isDeleted || !product.isActive) {
+        //             throw new AppError(`Product ${item.product} is not available`, 400);
+        //         }
+        //         if (!product.isPublic) {
+        //             if (!userVendorId) throw new AppError(`Product "${product.name}" is not available`, 403);
+        //             if (product.vendorId?.toString() !== userVendorId) {
+        //                 throw new AppError(`Product "${product.name}" is not available`, 403);
+        //             }
+        //         }
+        //         return {
+        //             product: product._id,
+        //             name: product.name,
+        //             mainImage: product.mainImage,
+        //             size: item.size || null,
+        //             quantity: item.quantity,
+        //             price: product.price,
+        //         };
+        //     })
+        // );
+        const enrichedItems = [];
+        for (const item of items) {
+            if (item.bundle) {
+                const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
+                if (!bundle || bundle.isDeleted || !bundle.isActive) {
+                    throw new AppError("Bundle is not available", 400);
+                }
+                for (const component of bundle.products) {
+                    if (component.product.hasSizeVariants) {
+                        const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
+                        if (!sel?.size) {
+                            throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
                         }
                     }
+                }
+                const { bundlePrice } = await bundle.calculatePrice();
+                enrichedItems.push({
+                    bundle: bundle._id, name: bundle.name, mainImage: bundle.mainImage,
+                    quantity: item.quantity, price: bundlePrice, bundleSelections: item.selections || [],
+                });
+                continue;
+            }
 
-                    const { bundlePrice } = await bundle.calculatePrice();
-                    return {
-                        bundle: bundle._id,
-                        name: bundle.name,
-                        mainImage: bundle.mainImage,
-                        quantity: item.quantity,
-                        price: bundlePrice,
-                        bundleSelections: item.selections || [],
-                    };
+            const product = await Product.findById(item.product).session(session);
+            if (!product || product.isDeleted || !product.isActive) {
+                throw new AppError(`Product ${item.product} is not available`, 400);
+            }
+            if (!product.isPublic) {
+                if (!userVendorId) throw new AppError(`Product "${product.name}" is not available`, 403);
+                if (product.vendorId?.toString() !== userVendorId) {
+                    throw new AppError(`Product "${product.name}" is not available`, 403);
                 }
-                const product = await Product.findById(item.product).session(session);
-                if (!product || product.isDeleted || !product.isActive) {
-                    throw new AppError(`Product ${item.product} is not available`, 400);
-                }
-                if (!product.isPublic) {
-                    if (!userVendorId) throw new AppError(`Product "${product.name}" is not available`, 403);
-                    if (product.vendorId?.toString() !== userVendorId) {
-                        throw new AppError(`Product "${product.name}" is not available`, 403);
-                    }
-                }
-                return {
-                    product: product._id,
-                    name: product.name,
-                    mainImage: product.mainImage,
-                    size: item.size || null,
-                    quantity: item.quantity,
-                    price: product.price,
-                };
-            })
-        );
+            }
+            enrichedItems.push({
+                product: product._id, name: product.name, mainImage: product.mainImage,
+                size: item.size || null, quantity: item.quantity, price: product.price,
+            });
+        }
 
         const order = await orderService.createOrder(
             {
