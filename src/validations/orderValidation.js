@@ -14,17 +14,15 @@ const createOrderValidation = [
   body("items.*.quantity").isInt({ min: 1 }).withMessage("Quantity must be at least 1"),
   body("promoCode").optional().trim(),
   oneOf([
-    body('items.*.product').notEmpty().isMongoId(),
-    body('items.*.bundle').notEmpty().isMongoId()
-  ], {
-    message: 'Each item must have either a valid product ID or bundle ID'
-  }),
+    [body('items.*.product').notEmpty().isMongoId()],
+    [body('items.*.bundle').notEmpty().isMongoId()]
+  ], { message: 'Each item must have either a valid product ID or bundle ID' }),
 ];
 
 const updateOrderStatusValidation = [
   body("status")
     .notEmpty()
-    .isIn(["pending", "confirmed", "processing", "shipped", "delivered", "cancelled" , "refunded"])
+    .isIn(["pending", "confirmed", "processing", "shipped", "delivered", "cancelled", "refunded"])
     .withMessage("Invalid order status"),
   body("notes").optional().trim(),
 ];
