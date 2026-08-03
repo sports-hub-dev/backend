@@ -13,10 +13,12 @@ const createOrderValidation = [
   // body("items.*.product").notEmpty().isMongoId().withMessage("Invalid product ID"),
   body("items.*.quantity").isInt({ min: 1 }).withMessage("Quantity must be at least 1"),
   body("promoCode").optional().trim(),
-  oneOf([
-    [body('items.*.product').notEmpty().isMongoId()],
-    [body('items.*.bundle').notEmpty().isMongoId()]
-  ], { message: 'Each item must have either a valid product ID or bundle ID' }),
+  body("items").custom((items) => {
+          if (items.some((item) => !item.product && !item.bundle)) {
+              throw new Error("Each item must reference either a product or a bundle");
+          }
+          return true;
+      }),
 ];
 
 const updateOrderStatusValidation = [
