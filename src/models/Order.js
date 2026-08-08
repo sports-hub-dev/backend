@@ -72,7 +72,7 @@ const orderSchema = new mongoose.Schema(
     // ── Payment ────────────────────────────────────────────────────────────
     paymentMethod: {
       type: String,
-      enum: ["aps", "stripe", "unpaid"],
+      enum: ["paymob", "stripe", "unpaid"],
       default: "unpaid",
     },
     paymentStatus: {

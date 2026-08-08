@@ -1,12 +1,12 @@
 const mongoose = require("mongoose");
 const Order = require("../../models/Order");
 const orderService = require("../../services/orderService");
-const apsService = require("../../services/payment/apsService");
 const stripeService = require("../../services/payment/stripeService");
 const asyncHandler = require("../../utils/asyncHandler");
 const AppError = require("../../utils/AppError");
 const { successResponse } = require("../../utils/apiResponse");
 const logger = require("../../utils/logger");
+const paymobService = require("../../services/payment/paymobService");
 
 // Shared by both gateways — creates the order (deducts stock) inside a transaction,
 // then hands off to whichever gateway service initiates the actual payment.
@@ -124,22 +124,37 @@ const createOrderFromCart = async (req) => {
 
 };
 
-// ── APS ──────────────────────────────────────────────────────────────────
-exports.createApsOrder = asyncHandler(async (req, res) => {
-    const order = await createOrderFromCart(req);
-    const apsData = await apsService.initiatePayment(order._id);
 
-    successResponse(res, 201, "Order created. Redirect the browser to APS's hosted checkout page.", {
-        order: { _id: order._id, orderNumber: order.orderNumber, total: order.total },
-        aps: apsData,
-    });
+exports.createPaymobOrder = asyncHandler(async (req, res) => {
+  const order = await createOrderFromCart(req);
+  const paymobData = await paymobService.initiatePayment(order._id);
+  successResponse(res, 201, "Order created", {
+    order: { _id: order._id, orderNumber: order.orderNumber, total: order.total },
+    paymob: paymobData,
+  });
 });
 
-exports.apsReturn = asyncHandler(async (req, res) => {
-    const payload = Object.keys(req.body || {}).length ? req.body : req.query;
-    const result = await apsService.handleReturn(payload);
-    res.redirect(result.redirectUrl);
+exports.paymobCallback = asyncHandler(async (req, res) => {
+  const result = await paymobService.handleCallback(req.body, req.query.hmac);
+  res.redirect(result.redirectUrl);
 });
+
+// // ── APS ──────────────────────────────────────────────────────────────────
+// exports.createApsOrder = asyncHandler(async (req, res) => {
+//     const order = await createOrderFromCart(req);
+//     const apsData = await apsService.initiatePayment(order._id);
+
+//     successResponse(res, 201, "Order created. Redirect the browser to APS's hosted checkout page.", {
+//         order: { _id: order._id, orderNumber: order.orderNumber, total: order.total },
+//         aps: apsData,
+//     });
+// });
+
+// exports.apsReturn = asyncHandler(async (req, res) => {
+//     const payload = Object.keys(req.body || {}).length ? req.body : req.query;
+//     const result = await apsService.handleReturn(payload);
+//     res.redirect(result.redirectUrl);
+// });
 
 // ── Stripe ───────────────────────────────────────────────────────────────
 exports.createStripeOrder = asyncHandler(async (req, res) => {
