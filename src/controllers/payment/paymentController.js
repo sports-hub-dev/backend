@@ -174,8 +174,6 @@ exports.createPaymobOrder = asyncHandler(async (req, res) => {
             });
         }
 
-        logger.info(`Enriched Items: ${JSON.stringify(enrichedItems, null, 2)}`);
-
         order = await orderService.createOrder(
             {
                 items: enrichedItems, customerInfo, shippingAddress, promoCode,
@@ -189,7 +187,6 @@ exports.createPaymobOrder = asyncHandler(async (req, res) => {
     } catch (err) {
         await session.abortTransaction();
         session.endSession();
-        console.error("ORDER CREATE FAILED:", err.message, err.stack);
         throw err;
     }
 
