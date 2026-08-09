@@ -126,17 +126,82 @@ const createOrderFromCart = async (req) => {
 
 
 exports.createPaymobOrder = asyncHandler(async (req, res) => {
-  const order = await createOrderFromCart(req);
-  const paymobData = await paymobService.initiatePayment(order._id);
-  successResponse(res, 201, "Order created", {
-    order: { _id: order._id, orderNumber: order.orderNumber, total: order.total },
-    paymob: paymobData,
-  });
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    let order;
+    try {
+        const { items, customerInfo, shippingAddress, promoCode } = req.body;
+        const userVendorId = req.user?.vendorId?.toString() || null;
+        const Product = require("../../models/Product");
+        const Bundle = require("../../models/Bundle");
+
+        const enrichedItems = [];
+        for (const item of items) {
+            if (item.bundle) {
+                const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
+                if (!bundle || bundle.isDeleted || !bundle.isActive) {
+                    throw new AppError("Bundle is not available", 400);
+                }
+                for (const component of bundle.products) {
+                    if (component.product.hasSizeVariants) {
+                        const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
+                        if (!sel?.size) {
+                            throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
+                        }
+                    }
+                }
+                const { bundlePrice } = await bundle.calculatePrice();
+                enrichedItems.push({
+                    bundle: bundle._id, name: bundle.name, mainImage: bundle.mainImage,
+                    quantity: item.quantity, price: bundlePrice, bundleSelections: item.selections || [],
+                });
+                continue;
+            }
+
+            const product = await Product.findById(item.product).session(session);
+            if (!product || product.isDeleted || !product.isActive) {
+                throw new AppError(`Product ${item.product} is not available`, 400);
+            }
+            if (!product.isPublic) {
+                if (!userVendorId) throw new AppError(`Product "${product.name}" is not available`, 403);
+                if (product.vendorId?.toString() !== userVendorId) {
+                    throw new AppError(`Product "${product.name}" is not available`, 403);
+                }
+            }
+            enrichedItems.push({
+                product: product._id, name: product.name, mainImage: product.mainImage,
+                size: item.size || null, quantity: item.quantity, price: product.price,
+            });
+        }
+
+        order = await orderService.createOrder(
+            {
+                items: enrichedItems, customerInfo, shippingAddress, promoCode,
+                userId: req.user._id, vendorId: userVendorId ? req.user.vendorId : null,
+            },
+            session
+        );
+
+        await session.commitTransaction();
+        session.endSession();
+    } catch (err) {
+        await session.abortTransaction();
+        session.endSession();
+        throw err;
+    }
+
+    logger.info(`Order created for Paymob: ${order._id}, orderNumber: ${order.orderNumber}`);
+    const paymobData = await paymobService.initiatePayment(order._id);
+
+    successResponse(res, 201, "Order created", {
+        order: { _id: order._id, orderNumber: order.orderNumber, total: order.total },
+        paymob: paymobData,
+    });
 });
 
 exports.paymobCallback = asyncHandler(async (req, res) => {
-  const result = await paymobService.handleCallback(req.body, req.query.hmac);
-  res.redirect(result.redirectUrl);
+    const result = await paymobService.handleCallback(req.body, req.query.hmac);
+    res.redirect(result.redirectUrl);
 });
 
 // // ── APS ──────────────────────────────────────────────────────────────────
