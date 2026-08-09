@@ -174,6 +174,8 @@ exports.createPaymobOrder = asyncHandler(async (req, res) => {
             });
         }
 
+        logger.info(`Enriched Items: ${enrichedItems}`);
+
         order = await orderService.createOrder(
             {
                 items: enrichedItems, customerInfo, shippingAddress, promoCode,
