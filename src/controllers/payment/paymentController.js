@@ -189,6 +189,7 @@ exports.createPaymobOrder = asyncHandler(async (req, res) => {
     } catch (err) {
         await session.abortTransaction();
         session.endSession();
+        console.error("ORDER CREATE FAILED:", err.message, err.stack);
         throw err;
     }
 
