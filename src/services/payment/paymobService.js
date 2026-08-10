@@ -52,8 +52,13 @@ const paymobService = {
     if (order.paymentStatus === "paid") throw new AppError("Order is already paid", 400);
 
     const authToken = await this._authenticate();
+    logger.info("Paymob: auth OK");
+
     const paymobOrderId = await this._createPaymobOrder(authToken, order);
+    logger.info(`Paymob: order created — ${paymobOrderId}`);
+
     const paymentToken = await this._getPaymentKey(authToken, paymobOrderId, order);
+    logger.info("Paymob: payment key OK");
 
     order.paymentMethod = "paymob";
     order.paymobOrderId = paymobOrderId;
