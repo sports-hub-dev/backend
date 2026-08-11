@@ -201,7 +201,8 @@ exports.createPaymobOrder = asyncHandler(async (req, res) => {
 });
 
 exports.paymobCallback = asyncHandler(async (req, res) => {
-    const result = await paymobService.handleCallback(req.body, req.query.hmac);
+    const payload = Object.keys(req.body || {}).length ? req.body : req.query;
+    const result = await paymobService.handleCallback(payload, req.query.hmac);
     res.redirect(result.redirectUrl);
 });
 
