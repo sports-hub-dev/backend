@@ -60,7 +60,7 @@ const paymobService = {
         const txn = body.obj || body;
         if (!this._verifyHmac(txn, hmacFromQuery)) throw new AppError("Invalid Paymob HMAC signature", 401);
 
-        const order = await Order.findOne({ paymobOrderId: txn.order });
+        const order = await Order.findOne({ orderNumber: txn.merchant_order_id });
         if (!order) return { success: false, redirectUrl: `${process.env.CLIENT_URL}/checkout?payment=failed` };
 
         order.paymobTransactionId = txn.id;
