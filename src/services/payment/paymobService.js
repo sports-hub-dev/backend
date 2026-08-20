@@ -17,7 +17,10 @@ const paymobService = {
             {
                 amount: Math.round(order.total * 100),
                 currency: "EGP",
-                payment_methods: [Number(process.env.PAYMOB_INTEGRATION_ID)],
+                payment_methods: [
+                Number(process.env.PAYMOB_INTEGRATION_ID),
+                Number(process.env.PAYMOB_WALLET_INTEGRATION_ID),
+                ],
                 billing_data: {
                     first_name: firstName || "NA",
                     last_name: rest.join(" ") || "NA",
