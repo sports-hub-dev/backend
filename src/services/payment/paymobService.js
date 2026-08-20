@@ -74,7 +74,7 @@ const paymobService = {
             order.paidAt = new Date();
             if (order.status === "pending") {
                 order.status = "confirmed";
-                order.timeline.push({ previousStatus: "pending", newStatus: "confirmed", changedByName: "Paymob", notes: `Payment confirmed — txn: ${txn.id}` });
+                order.timeline.push({ previousStatus: "pending", newStatus: "confirmed", changedByName: "Paymob", notes: "Payment confirmed" });
             }
         } else {
             order.paymentStatus = "failed";
