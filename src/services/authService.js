@@ -73,7 +73,11 @@ const authService = {
           </div>`,
       }).catch(() => { }); // non-fatal
     }
-
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    user.emailVerificationToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+    user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24h
+    const verifyUrl = `${process.env.CLIENT_URL}/verify-email/${rawToken}`;
+    sendVerificationEmail(user.email, verifyUrl).catch((err) => logger.error(`Verification email failed: ${err.message}`));
     return {
       user: user.toSafeObject(),
       message: "Registration submitted. Your account is pending admin approval. You will be notified by email once approved.",

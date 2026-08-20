@@ -3,7 +3,7 @@ const Vendor  = require("../models/Vendor");
 const asyncHandler = require("../utils/asyncHandler");
 const AppError     = require("../utils/AppError");
 const { successResponse, paginatedResponse } = require("../utils/apiResponse");
-const { sendEmail, sendWelcomeEmail } = require("../utils/emailUtils");
+const { sendEmail, sendWelcomeEmail,sendVerificationEmail } = require("../utils/emailUtils");
 const SAFE_SELECT = "-password -refreshTokens -passwordResetToken -passwordResetExpires -invitationToken -invitationExpires";
 
 // ── Get All Users ──────────────────────────────────────────────────────────
