@@ -51,6 +51,7 @@ const authService = {
       vendorId: vendor._id,
       isApproved: false,  // must wait for admin approval
       isActive: true,   // account exists but cannot log in until approved
+      // isEmailVerified: true,
     });
 
     // Notify Sports Hub admin that a new vendor user is awaiting approval
@@ -76,6 +77,8 @@ const authService = {
     const rawToken = crypto.randomBytes(32).toString("hex");
     user.emailVerificationToken = crypto.createHash("sha256").update(rawToken).digest("hex");
     user.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000; // 24h
+    await user.save({ validateBeforeSave: false });
+
     const verifyUrl = `${process.env.CLIENT_URL}/verify-email/${rawToken}`;
     sendVerificationEmail(user.email, verifyUrl).catch((err) => logger.error(`Verification email failed: ${err.message}`));
     return {
