@@ -307,9 +307,12 @@ exports.getMyOrderById = asyncHandler(async (req, res) => {
 });
 
 // ── Public: Track by order number ──────────────────────────────────────────
+// This endpoint needs no login, and order numbers follow a guessable pattern
+// (date + 5 digits), so it must never return personal data. Only the status,
+// the status history (without staff names) and the delivery city go out.
 exports.trackOrder = asyncHandler(async (req, res) => {
   const order = await Order.findOne({ orderNumber: req.params.orderNumber.toUpperCase() })
-    .select("orderNumber status timeline customerInfo.name shippingAddress createdAt total");
+    .select("orderNumber status timeline.newStatus timeline.timestamp timeline.notes shippingAddress.city createdAt total");
   if (!order) throw new AppError("Order not found", 404);
   successResponse(res, 200, "Order tracked", { order });
 });
