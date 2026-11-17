@@ -117,8 +117,12 @@ const authService = {
   },
 
   // ── Logout ────────────────────────────────────────────────────────────────
-  async logout(userId, refreshToken) {
-    const user = await User.findById(userId);
+  /** Revoke one refresh token. Silently does nothing for an invalid/expired token. */
+  async logout(refreshToken) {
+    let decoded;
+    try { decoded = verifyRefreshToken(refreshToken); }
+    catch { return; }
+    const user = await User.findById(decoded.id || decoded._id || decoded.userId);
     if (!user) return;
     user.refreshTokens = user.refreshTokens.filter((t) => t.token !== refreshToken);
     await user.save({ validateBeforeSave: false });

@@ -25,7 +25,7 @@ router.post("/reset-password/:token", resetPasswordValidation,              vali
 router.get("/verify-email/:token", authController.verifyEmail);
 
 // ── Protected profile ──────────────────────────────────────────────────────
-router.post("/logout",                     protect, authController.logout);
+router.post("/logout",                     authController.logout);
 router.get( "/me",                         protect, authController.getMe);
 router.patch("/me",                        protect, updateProfileValidation, validate, authController.updateProfile);
 router.post( "/me/addresses",              protect, addressValidation,       validate, authController.addAddress);

@@ -36,10 +36,15 @@ exports.verifyEmail = asyncHandler(async (req, res) => {
 });
 
 // ── Logout ─────────────────────────────────────────────────────────────────
+// No access token required: logging out must work even after the short-lived
+// access token has expired. The refresh token itself identifies the session.
 exports.logout = asyncHandler(async (req, res) => {
   const token = req.cookies?.refreshToken || req.body?.refreshToken;
-  if (req.user && token) await authService.logout(req.user._id, token);
-  res.clearCookie("refreshToken");
+  if (token) await authService.logout(token);
+  // The browser only deletes the cookie if the clear uses the same attributes
+  // it was set with (Secure + SameSite=None in production, cross-site).
+  const { maxAge, ...clearOpts } = COOKIE_OPTS;
+  res.clearCookie("refreshToken", clearOpts);
   successResponse(res, 200, "Logged out successfully");
 });
 
