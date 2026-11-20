@@ -6,6 +6,8 @@ const Settings = require("../models/Settings");
 const inventoryService = require("./inventoryService");
 const AppError = require("../utils/AppError");
 const { ORDER_STATUS } = require("../utils/constants");
+const Product = require("../models/Product");
+const { productPrice, shippingFeeKey, COUNTRY_NAMES } = require("../utils/currency");
 
 /**
  * Expands any bundle line items into their underlying component products,
@@ -57,10 +59,79 @@ const expandItemsForStock = async (items, session) => {
 
 const orderService = {
 
-  async createOrder(orderData, session) {
-    const { items, customerInfo, shippingAddress, promoCode: promoCodeStr, userId, vendorId } = orderData;
+  /**
+   * Turns the cart sent by the browser into priced order lines, using prices
+   * from the database in the order's currency (never prices sent by the client).
+   * Also enforces bundle size selections and vendor-only product access.
+   * Shared by normal checkout, Stripe and Paymob so they can't drift apart.
+   */
+  async enrichItems({ items, currency = "EGP", userVendorId = null, session }) {
+    const enriched = [];
+    for (const item of items) {
+      if (item.bundle) {
+        const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
+        if (!bundle || bundle.isDeleted || !bundle.isActive) {
+          throw new AppError("Bundle is not available", 400);
+        }
+        for (const component of bundle.products) {
+          if (component.product.hasSizeVariants) {
+            const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
+            if (!sel?.size) {
+              throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
+            }
+          }
+        }
+        const { bundlePrice } = await bundle.calculatePrice(currency);
+        if (bundlePrice === null) {
+          throw new AppError(`"${bundle.name}" isn't available in ${currency} yet`, 400);
+        }
+        enriched.push({
+          bundle: bundle._id, name: bundle.name, mainImage: bundle.mainImage,
+          quantity: item.quantity, price: bundlePrice, bundleSelections: item.selections || [],
+        });
+        continue;
+      }
 
-    const shippingFee = await Settings.getValue("shippingFee", 75);
+      const product = await Product.findById(item.product).session(session);
+      if (!product || product.isDeleted || !product.isActive) {
+        throw new AppError(`Product ${item.product} is not available`, 400);
+      }
+      if (!product.isPublic) {
+        if (!userVendorId) throw new AppError(`Product "${product.name}" is not available`, 403);
+        if (product.vendorId?.toString() !== userVendorId) {
+          throw new AppError(`Product "${product.name}" is not available`, 403);
+        }
+      }
+      const price = productPrice(product, currency);
+      if (price === null) {
+        throw new AppError(`"${product.name}" isn't available in ${currency} yet`, 400);
+      }
+      enriched.push({
+        product: product._id, name: product.name, mainImage: product.mainImage,
+        size: item.size || null, quantity: item.quantity, price,
+      });
+    }
+    return enriched;
+  },
+
+  /** Flat shipping fee for a currency. EGP keeps the old 75 default; SAR/AED must be set by the admin. */
+  async getShippingFee(currency = "EGP") {
+    if (currency === "EGP") return Settings.getValue("shippingFee", 75);
+    const fee = await Settings.getValue(shippingFeeKey(currency), null);
+    if (fee === null || fee === undefined || fee === "") return null;
+    return Number(fee);
+  },
+
+  async createOrder(orderData, session) {
+    const {
+      items, customerInfo, shippingAddress, promoCode: promoCodeStr, userId, vendorId,
+      currency = "EGP", country = "EG",
+    } = orderData;
+
+    const shippingFee = await this.getShippingFee(currency);
+    if (shippingFee === null) {
+      throw new AppError(`Delivery to ${COUNTRY_NAMES[country] || country} isn't set up yet. Please contact us.`, 400);
+    }
 
     let discount = 0;
     let promoDiscount = 0;
@@ -86,7 +157,7 @@ const orderService = {
           user: userId || null,
           isGuest: false,
           customerInfo,
-          shippingAddress,
+          shippingAddress: { ...shippingAddress, country: COUNTRY_NAMES[country] || shippingAddress?.country },
           items: items.map((i) => ({
             product: i.product || null,
             bundle: i.bundle || null,
@@ -103,6 +174,8 @@ const orderService = {
           promoCode: appliedCode,
           promoDiscount,
           total,
+          currency,
+          country,
           vendorId: vendorId || null,
           status: ORDER_STATUS.PENDING,
           timeline: [{ newStatus: ORDER_STATUS.PENDING, notes: "Order placed" }],

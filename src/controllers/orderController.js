@@ -10,125 +10,31 @@ const { successResponse, paginatedResponse } = require("../utils/apiResponse");
 const { PAGINATION } = require("../utils/constants");
 const { sendOrderNotificationEmail } = require("../utils/emailUtils");
 const logger = require("../utils/logger");
+const { resolveOrderCurrency } = require("../utils/currency");
 
 // ── Create Order — requires login (no guest orders for vendor products) ────
 // Public products can be ordered by any logged-in user.
 // Vendor-specific products can only be ordered by approved users of that vendor.
 exports.createOrder = asyncHandler(async (req, res) => {
+  const { items, customerInfo, shippingAddress, promoCode, currency: requestedCurrency } = req.body;
+  const { currency, country } = resolveOrderCurrency(shippingAddress, requestedCurrency);
+  const userVendorId = req.user?.vendorId?.toString() || null;
+
   const session = await mongoose.startSession();
   session.startTransaction();
-
   try {
-    const { items, customerInfo, shippingAddress, promoCode } = req.body;
-
-    const userVendorId = req.user?.vendorId?.toString() || null;
-
-    // Enrich items and validate visibility + access
-    const enrichedItems = [];
-    for (const item of items) {
-      if (item.bundle) {
-        const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
-        if (!bundle || bundle.isDeleted || !bundle.isActive) {
-          throw new AppError("Bundle is not available", 400);
-        }
-        for (const component of bundle.products) {
-          if (component.product.hasSizeVariants) {
-            const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
-            if (!sel?.size) {
-              throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
-            }
-          }
-        }
-        const { bundlePrice } = await bundle.calculatePrice();
-        enrichedItems.push({
-          bundle: bundle._id, name: bundle.name, mainImage: bundle.mainImage,
-          quantity: item.quantity, price: bundlePrice, bundleSelections: item.selections || [],
-        });
-        continue;
-      }
-
-      const product = await Product.findById(item.product).session(session);
-      if (!product || product.isDeleted || !product.isActive) {
-        throw new AppError(`Product ${item.product} is not available`, 400);
-      }
-      if (!product.isPublic) {
-        if (!userVendorId) throw new AppError(`Product "${product.name}" is not available`, 403);
-        if (product.vendorId?.toString() !== userVendorId) {
-          throw new AppError(`Product "${product.name}" is not available`, 403);
-        }
-      }
-      enrichedItems.push({
-        product: product._id, name: product.name, mainImage: product.mainImage,
-        size: item.size || null, quantity: item.quantity, price: product.price,
-      });
-    }
-    // const enrichedItems = await Promise.all(
-    //   items.map(async (item) => {
-    //     if (item.bundle) {
-    //       const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
-    //       if (!bundle || bundle.isDeleted || !bundle.isActive) {
-    //         throw new AppError("Bundle is not available", 400);
-    //       }
-
-    //       for (const component of bundle.products) {
-    //         if (component.product.hasSizeVariants) {
-    //           const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
-    //           if (!sel?.size) {
-    //             throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
-    //           }
-    //         }
-    //       }
-
-    //       const { bundlePrice } = await bundle.calculatePrice();
-    //       return {
-    //         bundle: bundle._id,
-    //         name: bundle.name,
-    //         mainImage: bundle.mainImage,
-    //         quantity: item.quantity,
-    //         price: bundlePrice,
-    //         bundleSelections: item.selections || [],
-    //       };
-    //     }
-
-    //     const product = await Product.findById(item.product).session(session);
-    //     if (!product || product.isDeleted || !product.isActive) {
-    //       throw new AppError(`Product ${item.product} is not available`, 400);
-    //     }
-    //     const obj = product.toObject({ virtuals: true });
-
-    //     // Visibility check: vendor-specific products only for that vendor's users
-    //     if (!product.isPublic) {
-    //       if (!userVendorId) {
-    //         throw new AppError(`Product "${product.name}" is not available`, 403);
-    //       }
-    //       if (product.vendorId?.toString() !== userVendorId) {
-    //         throw new AppError(`Product "${product.name}" is not available`, 403);
-    //       }
-    //     }
-
-    //     return {
-    //       product: product._id,
-    //       name: product.name,
-    //       mainImage: storageService.getFileUrl(obj.mainImage),
-    //       size: item.size || null,
-    //       quantity: item.quantity,
-    //       price: product.price,
-    //     };
-    //   })
-    // );
-
-    let orderVendorId = null;
-    if (userVendorId) orderVendorId = req.user.vendorId;
-
+    const enrichedItems = await orderService.enrichItems({ items, currency, userVendorId, session });
     const order = await orderService.createOrder(
       {
         items: enrichedItems,
         customerInfo,
         shippingAddress,
         promoCode,
+        currency,
+        country,
         userId: req.user._id,
         isGuest: false,
-        vendorId: orderVendorId,
+        vendorId: userVendorId ? req.user.vendorId : null,
       },
       session
     );

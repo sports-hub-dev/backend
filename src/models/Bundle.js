@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { productPrice } = require("../utils/currency");
 
 const bundleItemSchema = new mongoose.Schema(
     {
@@ -22,11 +23,18 @@ const bundleSchema = new mongoose.Schema(
 );
 
 // Computed at read-time from live product prices, so it never goes stale if a component's price changes later.
-bundleSchema.methods.calculatePrice = async function () {
-    if (this.products.length > 0 && !this.products[0].product.price) {
-        await this.populate("products.product", "price");
+// Returns { fullPrice: null, bundlePrice: null } when any product in the
+// bundle has no price in that currency (the bundle isn't sold there).
+bundleSchema.methods.calculatePrice = async function (currency = "EGP") {
+    if (this.products.length > 0 && (!this.products[0].product || this.products[0].product.price === undefined)) {
+        await this.populate("products.product", "price prices");
     }
-    const fullPrice = this.products.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+    let fullPrice = 0;
+    for (const item of this.products) {
+        const unit = productPrice(item.product, currency);
+        if (unit === null) return { fullPrice: null, bundlePrice: null };
+        fullPrice += unit * item.quantity;
+    }
     const bundlePrice = Math.round(fullPrice * (1 - this.discountPercentage / 100));
     return { fullPrice, bundlePrice };
 };

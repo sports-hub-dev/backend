@@ -1,13 +1,19 @@
 const Bundle = require("../models/Bundle");
+const { SUPPORTED_CURRENCIES } = require("../utils/currency");
 const asyncHandler = require("../utils/asyncHandler");
 const AppError = require("../utils/AppError");
 const { successResponse, paginatedResponse } = require("../utils/apiResponse");
 
 const formatBundle = async (bundle) => {
-    const { fullPrice, bundlePrice } = await bundle.calculatePrice();
+    const { fullPrice, bundlePrice } = await bundle.calculatePrice("EGP");
     const obj = bundle.toObject();
     obj.fullPrice = fullPrice;
     obj.bundlePrice = bundlePrice;
+    // Same bundle priced in every supported currency (null = not sold there).
+    obj.pricesByCurrency = {};
+    for (const currency of SUPPORTED_CURRENCIES) {
+        obj.pricesByCurrency[currency] = await bundle.calculatePrice(currency);
+    }
     return obj;
 };
 
@@ -16,7 +22,7 @@ exports.getBundles = asyncHandler(async (req, res) => {
     const filter = { isDeleted: false, isActive: true };
     const skip = (page - 1) * limit;
     const [bundles, total] = await Promise.all([
-        Bundle.find(filter).populate("products.product", "name price mainImage stock hasSizeVariants variants").skip(skip).limit(+limit),
+        Bundle.find(filter).populate("products.product", "name price prices mainImage stock hasSizeVariants variants").skip(skip).limit(+limit),
         Bundle.countDocuments(filter),
     ]);
     const formatted = await Promise.all(bundles.map(formatBundle));
@@ -26,7 +32,7 @@ exports.getBundles = asyncHandler(async (req, res) => {
 exports.getBundleById = asyncHandler(async (req, res) => {
     const bundle = await Bundle.findById(req.params.id).populate({
         path: 'products.product',
-        select: 'name price mainImage stock hasSizeVariants variants isActive isDeleted totalStock'
+        select: 'name price prices mainImage stock hasSizeVariants variants isActive isDeleted totalStock'
     });
     if (!bundle || bundle.isDeleted) throw new AppError("Bundle not found", 404);
     successResponse(res, 200, "Bundle fetched", { bundle: await formatBundle(bundle) });

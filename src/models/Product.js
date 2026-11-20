@@ -20,7 +20,12 @@ const productSchema = new mongoose.Schema(
   {
     name:        { type: String, required: true, trim: true, index: true },
     description: { type: String, required: true, trim: true },
-    price:       { type: Number, required: true, min: 0 },
+    price:       { type: Number, required: true, min: 0 },          // EGP
+    // Prices in other currencies, typed by the admin. Empty = not sold there.
+    prices: {
+      SAR: { type: Number, min: 0, default: null },
+      AED: { type: Number, min: 0, default: null },
+    },
     category:    { type: String, required: true, trim: true, index: true },
 
     // Images

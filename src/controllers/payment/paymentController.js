@@ -7,112 +7,27 @@ const AppError = require("../../utils/AppError");
 const { successResponse } = require("../../utils/apiResponse");
 const logger = require("../../utils/logger");
 const paymobService = require("../../services/payment/paymobService");
+const { resolveOrderCurrency } = require("../../utils/currency");
 
-// Shared by both gateways — creates the order (deducts stock) inside a transaction,
-// then hands off to whichever gateway service initiates the actual payment.
+// Shared by every gateway: prices the cart in the delivery country's currency,
+// creates the order (deducts stock) inside a transaction, then the caller hands
+// off to whichever gateway service initiates the actual payment.
 const createOrderFromCart = async (req) => {
+    const { items, customerInfo, shippingAddress, promoCode, currency: requestedCurrency } = req.body;
+    const { currency, country } = resolveOrderCurrency(shippingAddress, requestedCurrency);
+    const userVendorId = req.user?.vendorId?.toString() || null;
+
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-        const { items, customerInfo, shippingAddress, promoCode } = req.body;
-        const userVendorId = req.user?.vendorId?.toString() || null;
-        const Product = require("../../models/Product");
-        const Bundle = require("../../models/Bundle");
-
-        // const enrichedItems = await Promise.all(
-        //     items.map(async (item) => {
-        //         if (item.bundle) {
-        //             const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
-        //             if (!bundle || bundle.isDeleted || !bundle.isActive) {
-        //                 throw new AppError("Bundle is not available", 400);
-        //             }
-
-        //             for (const component of bundle.products) {
-        //                 if (component.product.hasSizeVariants) {
-        //                     const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
-        //                     if (!sel?.size) {
-        //                         throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
-        //                     }
-        //                 }
-        //             }
-
-        //             const { bundlePrice } = await bundle.calculatePrice();
-        //             return {
-        //                 bundle: bundle._id,
-        //                 name: bundle.name,
-        //                 mainImage: bundle.mainImage,
-        //                 quantity: item.quantity,
-        //                 price: bundlePrice,
-        //                 bundleSelections: item.selections || [],
-        //             };
-        //         }
-        //         const product = await Product.findById(item.product).session(session);
-        //         if (!product || product.isDeleted || !product.isActive) {
-        //             throw new AppError(`Product ${item.product} is not available`, 400);
-        //         }
-        //         if (!product.isPublic) {
-        //             if (!userVendorId) throw new AppError(`Product "${product.name}" is not available`, 403);
-        //             if (product.vendorId?.toString() !== userVendorId) {
-        //                 throw new AppError(`Product "${product.name}" is not available`, 403);
-        //             }
-        //         }
-        //         return {
-        //             product: product._id,
-        //             name: product.name,
-        //             mainImage: product.mainImage,
-        //             size: item.size || null,
-        //             quantity: item.quantity,
-        //             price: product.price,
-        //         };
-        //     })
-        // );
-        const enrichedItems = [];
-        for (const item of items) {
-            if (item.bundle) {
-                const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
-                if (!bundle || bundle.isDeleted || !bundle.isActive) {
-                    throw new AppError("Bundle is not available", 400);
-                }
-                for (const component of bundle.products) {
-                    if (component.product.hasSizeVariants) {
-                        const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
-                        if (!sel?.size) {
-                            throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
-                        }
-                    }
-                }
-                const { bundlePrice } = await bundle.calculatePrice();
-                enrichedItems.push({
-                    bundle: bundle._id, name: bundle.name, mainImage: bundle.mainImage,
-                    quantity: item.quantity, price: bundlePrice, bundleSelections: item.selections || [],
-                });
-                continue;
-            }
-
-            const product = await Product.findById(item.product).session(session);
-            if (!product || product.isDeleted || !product.isActive) {
-                throw new AppError(`Product ${item.product} is not available`, 400);
-            }
-            if (!product.isPublic) {
-                if (!userVendorId) throw new AppError(`Product "${product.name}" is not available`, 403);
-                if (product.vendorId?.toString() !== userVendorId) {
-                    throw new AppError(`Product "${product.name}" is not available`, 403);
-                }
-            }
-            enrichedItems.push({
-                product: product._id, name: product.name, mainImage: product.mainImage,
-                size: item.size || null, quantity: item.quantity, price: product.price,
-            });
-        }
-
+        const enrichedItems = await orderService.enrichItems({ items, currency, userVendorId, session });
         const order = await orderService.createOrder(
             {
-                items: enrichedItems, customerInfo, shippingAddress, promoCode,
+                items: enrichedItems, customerInfo, shippingAddress, promoCode, currency, country,
                 userId: req.user._id, vendorId: userVendorId ? req.user.vendorId : null,
             },
             session
         );
-
         await session.commitTransaction();
         session.endSession();
         return order;
@@ -121,83 +36,23 @@ const createOrderFromCart = async (req) => {
         session.endSession();
         throw err;
     }
-
 };
 
+const orderSummary = (order) => ({
+    _id: order._id, orderNumber: order.orderNumber, total: order.total, currency: order.currency,
+});
 
+// ── Paymob (Egyptian cards and wallets — EGP only) ──────────────────────────
 exports.createPaymobOrder = asyncHandler(async (req, res) => {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    let order;
-    try {
-        const { items, customerInfo, shippingAddress, promoCode } = req.body;
-        const userVendorId = req.user?.vendorId?.toString() || null;
-        const Product = require("../../models/Product");
-        const Bundle = require("../../models/Bundle");
-
-        const enrichedItems = [];
-        for (const item of items) {
-            if (item.bundle) {
-                const bundle = await Bundle.findById(item.bundle).session(session).populate("products.product");
-                if (!bundle || bundle.isDeleted || !bundle.isActive) {
-                    throw new AppError("Bundle is not available", 400);
-                }
-                for (const component of bundle.products) {
-                    if (component.product.hasSizeVariants) {
-                        const sel = (item.selections || []).find((s) => s.product === component.product._id.toString());
-                        if (!sel?.size) {
-                            throw new AppError(`Please select a size for ${component.product.name} in bundle "${bundle.name}"`, 400);
-                        }
-                    }
-                }
-                const { bundlePrice } = await bundle.calculatePrice();
-                enrichedItems.push({
-                    bundle: bundle._id, name: bundle.name, mainImage: bundle.mainImage,
-                    quantity: item.quantity, price: bundlePrice, bundleSelections: item.selections || [],
-                });
-                continue;
-            }
-
-            const product = await Product.findById(item.product).session(session);
-            if (!product || product.isDeleted || !product.isActive) {
-                throw new AppError(`Product ${item.product} is not available`, 400);
-            }
-            if (!product.isPublic) {
-                if (!userVendorId) throw new AppError(`Product "${product.name}" is not available`, 403);
-                if (product.vendorId?.toString() !== userVendorId) {
-                    throw new AppError(`Product "${product.name}" is not available`, 403);
-                }
-            }
-            enrichedItems.push({
-                product: product._id, name: product.name, mainImage: product.mainImage,
-                size: item.size || null, quantity: item.quantity, price: product.price,
-            });
-        }
-
-        order = await orderService.createOrder(
-            {
-                items: enrichedItems, customerInfo, shippingAddress, promoCode,
-                userId: req.user._id, vendorId: userVendorId ? req.user.vendorId : null,
-            },
-            session
-        );
-
-        await session.commitTransaction();
-        session.endSession();
-    } catch (err) {
-        await session.abortTransaction();
-        session.endSession();
-        console.error("ORDER CREATE FAILED:", err.message, err.stack);
-        throw err;
+    const { currency } = resolveOrderCurrency(req.body.shippingAddress, req.body.currency);
+    if (currency !== "EGP") {
+        throw new AppError("Paymob only accepts EGP. Please pay by card for deliveries outside Egypt.", 400);
     }
-
+    const order = await createOrderFromCart(req);
     logger.info(`Order created for Paymob: ${order._id}, orderNumber: ${order.orderNumber}`);
     const paymobData = await paymobService.initiatePayment(order._id);
 
-    successResponse(res, 201, "Order created", {
-        order: { _id: order._id, orderNumber: order.orderNumber, total: order.total },
-        paymob: paymobData,
-    });
+    successResponse(res, 201, "Order created", { order: orderSummary(order), paymob: paymobData });
 });
 
 exports.paymobCallback = asyncHandler(async (req, res) => {
@@ -228,10 +83,7 @@ exports.createStripeOrder = asyncHandler(async (req, res) => {
     const order = await createOrderFromCart(req);
     const stripeData = await stripeService.createCheckoutSession(order._id);
 
-    successResponse(res, 201, "Order created", {
-        order: { _id: order._id, orderNumber: order.orderNumber, total: order.total },
-        stripe: stripeData,
-    });
+    successResponse(res, 201, "Order created", { order: orderSummary(order), stripe: stripeData });
 });
 
 exports.stripeWebhook = asyncHandler(async (req, res) => {
