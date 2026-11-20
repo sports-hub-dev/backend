@@ -5,6 +5,8 @@ const createProductValidation = [
   body("name").trim().notEmpty().withMessage("Product name is required").isLength({ max: 200 }),
   body("description").trim().notEmpty().withMessage("Description is required"),
   body("price").isFloat({ min: 0 }).withMessage("Price must be a positive number"),
+  body("priceSAR").optional({ values: "falsy" }).isFloat({ min: 0 }).withMessage("SAR price must be a positive number"),
+  body("priceAED").optional({ values: "falsy" }).isFloat({ min: 0 }).withMessage("AED price must be a positive number"),
   body("category").trim().notEmpty().withMessage("Category is required"),
   body("isPublic").optional().isBoolean().withMessage("isPublic must be true or false"),
   body("vendorId")
@@ -37,6 +39,8 @@ const updateProductValidation = [
   body("name").optional().trim().notEmpty().isLength({ max: 200 }),
   body("description").optional().trim().notEmpty(),
   body("price").optional().isFloat({ min: 0 }).withMessage("Price must be a positive number"),
+  body("priceSAR").optional({ values: "falsy" }).isFloat({ min: 0 }).withMessage("SAR price must be a positive number"),
+  body("priceAED").optional({ values: "falsy" }).isFloat({ min: 0 }).withMessage("AED price must be a positive number"),
   body("category").optional().trim().notEmpty(),
   body("isPublic").optional().isBoolean(),
   body("vendorId").optional().isMongoId(),
@@ -46,6 +50,7 @@ const productQueryValidation = [
   query("page").optional().isInt({ min: 1 }),
   query("limit").optional().isInt({ min: 1, max: 100 }),
   query("sort").optional().isIn(["price_asc", "price_desc", "newest", "oldest", "name_asc"]),
+  query("currency").optional().isIn(["EGP", "SAR", "AED"]),
 ];
 
 module.exports = { createProductValidation, updateProductValidation, productQueryValidation };

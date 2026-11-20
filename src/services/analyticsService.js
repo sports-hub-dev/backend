@@ -6,17 +6,28 @@ const InventoryLog = require("../models/InventoryLog");
 const PromoCode = require("../models/PromoCode");
 const { ORDER_STATUS } = require("../utils/constants");
 
+// Orders before multi-currency have no currency field: they are EGP.
+const EGP_ONLY = { currency: { $in: ["EGP", null] } };
+
 const analyticsService = {
   async getDateRangeAnalytics(startDate, endDate) {
     const start = new Date(startDate);
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
 
+    // Revenue by currency, so SAR/AED sales are visible without being mixed into EGP totals.
+    const revenueByCurrency = await Order.aggregate([
+      { $match: { createdAt: { $gte: start, $lte: end }, status: { $ne: ORDER_STATUS.CANCELLED } } },
+      { $group: { _id: { $ifNull: ["$currency", "EGP"] }, revenue: { $sum: "$total" }, orders: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]);
+
     const [summary] = await Order.aggregate([
       {
         $match: {
           createdAt: { $gte: start, $lte: end },
           status: { $ne: ORDER_STATUS.CANCELLED },
+          ...EGP_ONLY,
         },
       },
       {
@@ -35,6 +46,7 @@ const analyticsService = {
         $match: {
           createdAt: { $gte: start, $lte: end },
           status: { $ne: ORDER_STATUS.CANCELLED },
+          ...EGP_ONLY,
         },
       },
       { $unwind: "$items" },
@@ -54,6 +66,8 @@ const analyticsService = {
     return {
       period: { startDate: start, endDate: end },
       summary: summary || { totalOrders: 0, totalRevenue: 0, totalProductsSold: 0, avgOrderValue: 0 },
+      summaryCurrency: "EGP",
+      revenueByCurrency: revenueByCurrency.map((r) => ({ currency: r._id, revenue: r.revenue, orders: r.orders })),
       topProducts,
     };
   },
@@ -61,7 +75,7 @@ const analyticsService = {
   async getProductAnalytics(productId) {
     const id = new mongoose.Types.ObjectId(productId);
     const [result] = await Order.aggregate([
-      { $match: { status: { $ne: ORDER_STATUS.CANCELLED } } },
+      { $match: { status: { $ne: ORDER_STATUS.CANCELLED }, ...EGP_ONLY } },
       { $unwind: "$items" },
       { $match: { "items.product": id } },
       {
@@ -90,7 +104,7 @@ const analyticsService = {
     else dateGroup = { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } };
 
     return Order.aggregate([
-      { $match: { status: { $ne: ORDER_STATUS.CANCELLED } } },
+      { $match: { status: { $ne: ORDER_STATUS.CANCELLED }, ...EGP_ONLY } },
       { $group: { _id: dateGroup, revenue: { $sum: "$total" }, orders: { $sum: 1 } } },
       { $sort: { "_id.year": -1, "_id.month": -1, "_id.day": -1 } },
       { $limit: limit },

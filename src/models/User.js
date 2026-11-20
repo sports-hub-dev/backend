@@ -72,7 +72,15 @@ const userSchema = new mongoose.Schema(
     passwordResetToken: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
 
-    country: { type: String, default: "EG" },
+    country: { type: String, default: "EG" },  // EG | SA | AE — decides the user's currency
+
+    // Required for every DSP (vendor) user at registration; shown to admins for approval.
+    dsp: {
+      shortcode:   { type: String, trim: true, uppercase: true },
+      companyName: { type: String, trim: true },
+      station:     { type: String, trim: true, uppercase: true },
+      vatId:       { type: String, trim: true },
+    },
   },
   {
     timestamps: true,

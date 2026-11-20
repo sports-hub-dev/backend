@@ -18,7 +18,7 @@ const stripeService = {
       line_items: [
         {
           price_data: {
-            currency: "egp",
+            currency: (order.currency || "EGP").toLowerCase(),
             product_data: { name: `Sports Hub Order ${order.orderNumber}` },
             unit_amount: Math.round(order.total * 100),
           },

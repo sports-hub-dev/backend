@@ -23,6 +23,8 @@ const createPaymentOrderValidation = [
     }),
 
     body("promoCode").optional().trim(),
+    body("currency").optional().isIn(["EGP", "SAR", "AED"]).withMessage("Unsupported currency"),
+    body("shippingAddress.country").optional().trim(),
 ];
 
 module.exports = { createPaymentOrderValidation };

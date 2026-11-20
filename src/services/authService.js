@@ -1,3 +1,6 @@
+const { normalizeCountry, COUNTRY_NAMES } = require("../utils/currency");
+// Registration values go into an admin email: escape them so nobody can inject HTML.
+const escapeHtml = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const crypto = require("crypto");
 const User = require("../models/User");
 const Vendor = require("../models/Vendor");
@@ -35,7 +38,8 @@ const authService = {
   // User provides their vendorId (the vendor they belong to).
   // Account is created but isApproved = false → cannot log in until admin approves.
   async registerVendorUser(data) {
-    const { firstName, lastName, email, password, phoneNumber, vendorId } = data;
+    const { firstName, lastName, email, password, phoneNumber, vendorId, dspShortcode, companyName, station, vatId } = data;
+    const country = normalizeCountry(data.country);
 
     const existing = await User.findOne({ email });
     if (existing) throw new AppError("Email already registered", 409);
@@ -49,6 +53,8 @@ const authService = {
       firstName, lastName, email, password, phoneNumber,
       role: ROLES.CUSTOMER,
       vendorId: vendor._id,
+      country,
+      dsp: { shortcode: dspShortcode, companyName, station, vatId },
       isApproved: false,  // must wait for admin approval
       isActive: true,   // account exists but cannot log in until approved
       // isEmailVerified: true,
@@ -65,9 +71,14 @@ const authService = {
             <h2 style="color:#1B2A4A;">New Vendor User Awaiting Approval</h2>
             <p>A new user has registered and is linked to <strong>${vendor.name}</strong>.</p>
             <table style="border-collapse:collapse;width:100%;">
-              <tr><td style="padding:8px;border:1px solid #CBD5E1;"><strong>Name</strong></td><td style="padding:8px;border:1px solid #CBD5E1;">${firstName} ${lastName}</td></tr>
-              <tr><td style="padding:8px;border:1px solid #CBD5E1;"><strong>Email</strong></td><td style="padding:8px;border:1px solid #CBD5E1;">${email}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #CBD5E1;"><strong>Name</strong></td><td style="padding:8px;border:1px solid #CBD5E1;">${escapeHtml(`${firstName} ${lastName}`)}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #CBD5E1;"><strong>Email</strong></td><td style="padding:8px;border:1px solid #CBD5E1;">${escapeHtml(email)}</td></tr>
               <tr><td style="padding:8px;border:1px solid #CBD5E1;"><strong>Vendor</strong></td><td style="padding:8px;border:1px solid #CBD5E1;">${vendor.name}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #CBD5E1;"><strong>DSP shortcode</strong></td><td style="padding:8px;border:1px solid #CBD5E1;">${escapeHtml(user.dsp.shortcode)}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #CBD5E1;"><strong>Company name</strong></td><td style="padding:8px;border:1px solid #CBD5E1;">${escapeHtml(user.dsp.companyName)}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #CBD5E1;"><strong>Station</strong></td><td style="padding:8px;border:1px solid #CBD5E1;">${escapeHtml(user.dsp.station)}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #CBD5E1;"><strong>VAT ID</strong></td><td style="padding:8px;border:1px solid #CBD5E1;">${escapeHtml(user.dsp.vatId)}</td></tr>
+              <tr><td style="padding:8px;border:1px solid #CBD5E1;"><strong>Country</strong></td><td style="padding:8px;border:1px solid #CBD5E1;">${COUNTRY_NAMES[country]}</td></tr>
               <tr><td style="padding:8px;border:1px solid #CBD5E1;"><strong>User ID</strong></td><td style="padding:8px;border:1px solid #CBD5E1;">${user._id}</td></tr>
             </table>
             <p>Log in to the Sports Hub admin panel to approve or reject this account.</p>

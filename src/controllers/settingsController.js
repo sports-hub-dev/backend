@@ -1,3 +1,5 @@
+const orderService = require("../services/orderService");
+const { SUPPORTED_CURRENCIES, isSupportedCurrency } = require("../utils/currency");
 const Settings = require("../models/Settings");
 const asyncHandler = require("../utils/asyncHandler");
 const { successResponse } = require("../utils/apiResponse");
@@ -17,7 +19,10 @@ exports.updateSetting = asyncHandler(async (req, res) => {
   successResponse(res, 200, "Setting updated", { setting });
 });
 
+// ?currency=SAR → that currency's fee. Also returns every currency's fee (null = not set up).
 exports.getShippingFee = asyncHandler(async (req, res) => {
-  const fee = await Settings.getValue("shippingFee", 75);
-  successResponse(res, 200, "Shipping fee fetched", { shippingFee: fee, currency: "EGP" });
+  const currency = isSupportedCurrency(req.query.currency) ? req.query.currency : "EGP";
+  const fees = {};
+  for (const c of SUPPORTED_CURRENCIES) fees[c] = await orderService.getShippingFee(c);
+  successResponse(res, 200, "Shipping fee fetched", { shippingFee: fees[currency], currency, fees });
 });

@@ -6,6 +6,15 @@ const asyncHandler = require("../utils/asyncHandler");
 const AppError = require("../utils/AppError");
 const { successResponse, paginatedResponse } = require("../utils/apiResponse");
 const { PAGINATION, INVENTORY_CHANGE_TYPE } = require("../utils/constants");
+const { isSupportedCurrency } = require("../utils/currency");
+
+// Admin form sends priceSAR / priceAED. Empty → null (not sold in that currency).
+const parseOptionalPrice = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null || value === "" || value === "null") return null;
+  const n = parseFloat(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+};
 
 // ── Admin: Create Product ──────────────────────────────────────────────────
 exports.createProduct = asyncHandler(async (req, res) => {
@@ -29,6 +38,7 @@ exports.createProduct = asyncHandler(async (req, res) => {
     name: body.name,
     description: body.description,
     price: body.price,
+    prices: { SAR: parseOptionalPrice(body.priceSAR) ?? null, AED: parseOptionalPrice(body.priceAED) ?? null },
     category: body.category,
     mainImage: req.file.path,
     hasSizeVariants,
@@ -65,6 +75,11 @@ exports.updateProduct = asyncHandler(async (req, res) => {
   updatableFields.forEach((field) => {
     if (req.body[field] !== undefined) product[field] = req.body[field];
   });
+
+  for (const cur of ["SAR", "AED"]) {
+    const v = parseOptionalPrice(req.body[`price${cur}`]);
+    if (v !== undefined) product.set(`prices.${cur}`, v);
+  }
 
   // If changing to public, clear vendorId
   if (product.isPublic) product.vendorId = null;
@@ -163,6 +178,9 @@ exports.adminGetProducts = asyncHandler(async (req, res) => {
 // - Authenticated vendor user: public products + their vendor's products
 exports.getProducts = asyncHandler(async (req, res) => {
   const { page = 1, limit = PAGINATION.DEFAULT_LIMIT, search, category, sort, minPrice, maxPrice } = req.query;
+  // ?currency=SAR|AED → only products priced in that currency; price filter/sort use that price.
+  const currency = isSupportedCurrency(req.query.currency) ? req.query.currency : "EGP";
+  const priceField = currency === "EGP" ? "price" : `prices.${currency}`;
 
   // const vendorId = req.user?.vendorId || null;
 
@@ -187,15 +205,16 @@ exports.getProducts = asyncHandler(async (req, res) => {
 
   if (search) filter.$text = { $search: search };
   if (category) filter.category = category;
+  if (currency !== "EGP") filter[priceField] = { $gt: 0 };
   if (minPrice || maxPrice) {
-    filter.price = {};
-    if (minPrice) filter.price.$gte = parseFloat(minPrice);
-    if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
+    filter[priceField] = { ...(filter[priceField] || {}) };
+    if (minPrice) filter[priceField].$gte = parseFloat(minPrice);
+    if (maxPrice) filter[priceField].$lte = parseFloat(maxPrice);
   }
 
   const sortMap = {
-    price_asc: { price: 1 },
-    price_desc: { price: -1 },
+    price_asc: { [priceField]: 1 },
+    price_desc: { [priceField]: -1 },
     newest: { createdAt: -1 },
     oldest: { createdAt: 1 },
     name_asc: { name: 1 },

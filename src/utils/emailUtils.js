@@ -57,7 +57,7 @@ const sendOrderNotificationEmail = async (order) => {
     <tr>
       <td style="padding:8px;border-bottom:1px solid #eee;">${item.name}${item.size ? ` (${item.size})` : ""}</td>
       <td style="padding:8px;border-bottom:1px solid #eee;text-align:center;">${item.quantity}</td>
-      <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${item.price} EGP</td>
+      <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${item.price} ${order.currency || "EGP"}</td>
     </tr>
   `).join("");
 
@@ -70,7 +70,7 @@ const sendOrderNotificationEmail = async (order) => {
         <thead><tr><th style="text-align:left;padding:8px;border-bottom:2px solid #333;">Item</th><th style="padding:8px;border-bottom:2px solid #333;">Qty</th><th style="text-align:right;padding:8px;border-bottom:2px solid #333;">Price</th></tr></thead>
         <tbody>${itemsHtml}</tbody>
       </table>
-      <p style="margin-top:16px;"><strong>Total: ${order.total} EGP</strong></p>
+      <p style="margin-top:16px;"><strong>Total: ${order.total} ${order.currency || "EGP"}</strong></p>
       <p>Payment Method: ${order.paymentMethod} | Status: ${order.paymentStatus}</p>
     </div>
   `;

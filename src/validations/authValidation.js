@@ -20,6 +20,12 @@ const registerVendorUserValidation = [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage("Password must contain uppercase, lowercase, and a number"),
   body("phoneNumber").optional().trim().isNumeric().withMessage("Phone number must contain digits only").isLength({ min: 7, max: 15 }).withMessage("Phone number must be between 7 and 15 digits"),
   body("vendorId").notEmpty().isMongoId().withMessage("Valid vendor ID is required"),
+  body("dspShortcode").trim().notEmpty().withMessage("DSP shortcode is required")
+    .isLength({ max: 20 }).matches(/^[A-Za-z0-9-]+$/).withMessage("DSP shortcode can only contain letters, numbers and dashes"),
+  body("companyName").trim().notEmpty().withMessage("Company name is required").isLength({ max: 150 }),
+  body("station").trim().notEmpty().withMessage("Station is required").isLength({ max: 30 }),
+  body("vatId").trim().notEmpty().withMessage("VAT ID is required").isLength({ max: 40 }),
+  body("country").trim().notEmpty().withMessage("Country is required").isIn(["EG", "SA", "AE"]).withMessage("Country must be Egypt, Saudi Arabia or UAE"),
 ];
 
 const loginValidation = [

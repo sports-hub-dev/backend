@@ -14,6 +14,8 @@ const createOrderValidation = [
   // body("items.*.product").notEmpty().isMongoId().withMessage("Invalid product ID"),
   body("items.*.quantity").isInt({ min: 1 }).withMessage("Quantity must be at least 1"),
   body("promoCode").optional().trim(),
+    body("currency").optional().isIn(["EGP", "SAR", "AED"]).withMessage("Unsupported currency"),
+    body("shippingAddress.country").optional().trim(),
   body("items").custom((items) => {
           if (items.some((item) => !item.product && !item.bundle)) {
               throw new AppError("Each item must reference either a product or a bundle" , 403);
