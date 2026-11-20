@@ -215,7 +215,7 @@ exports.getMyOrderById = asyncHandler(async (req, res) => {
 // ── Public: Track by order number ──────────────────────────────────────────
 exports.trackOrder = asyncHandler(async (req, res) => {
   const order = await Order.findOne({ orderNumber: req.params.orderNumber.toUpperCase() })
-    .select("orderNumber status timeline customerInfo.name shippingAddress createdAt total");
+    .select("orderNumber status timeline customerInfo.name shippingAddress createdAt total currency");
   if (!order) throw new AppError("Order not found", 404);
   successResponse(res, 200, "Order tracked", { order });
 });
